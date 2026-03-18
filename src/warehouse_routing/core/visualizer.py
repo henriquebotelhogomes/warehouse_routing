@@ -1,9 +1,10 @@
 import io
+from typing import List
+
 import matplotlib.pyplot as plt
-import seaborn as sns
 import networkx as nx
 import numpy as np
-from typing import List
+import seaborn as sns
 
 
 class WarehouseVisualizer:

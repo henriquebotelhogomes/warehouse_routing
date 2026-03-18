@@ -1,6 +1,7 @@
+from typing import List
+
 import numpy as np
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from typing import List
 
 
 class Settings(BaseSettings):

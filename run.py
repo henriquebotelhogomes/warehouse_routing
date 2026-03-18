@@ -1,7 +1,8 @@
-import uvicorn
-import sys
 import os
-from warehouse_routing.core.config import LOCATIONS, BASE_REWARDS_MATRIX, settings
+import sys
+
+import uvicorn
+from warehouse_routing.core.config import BASE_REWARDS_MATRIX, LOCATIONS, settings
 from warehouse_routing.core.q_learning import WarehouseRouteOptimizer
 from warehouse_routing.core.visualizer import WarehouseVisualizer
 

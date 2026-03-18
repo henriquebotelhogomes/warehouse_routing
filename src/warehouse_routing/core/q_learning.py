@@ -1,8 +1,9 @@
 import os
 import time
+from typing import Dict, List
+
 import joblib
 import numpy as np
-from typing import List, Dict
 from loguru import logger
 
 

@@ -21,8 +21,9 @@ dependencies = [
     "streamlit>=1.32.0",
 ]
 
-[tool.uv]
-dev-dependencies = [
+# ✅ Novo padrão do uv para dependências de desenvolvimento
+[dependency-groups]
+dev = [
     "pytest>=8.0.0",
     "pytest-cov>=4.1.0",
     "mypy>=1.9.0",
@@ -36,11 +37,11 @@ strict = false
 disallow_untyped_defs = false
 disallow_incomplete_defs = false
 check_untyped_defs = true
-warn_return_any = false
-warn_unused_ignores = false
 ignore_missing_imports = true
 
 [tool.ruff]
 line-length = 100
 target-version = "py312"
-lint.select = ["E", "F", "I", "B"] # Ativa regras essenciais de erro, imports e bugs
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B"] # Erros, Pyflakes, Isort (imports), Bugbear

@@ -1,10 +1,11 @@
-import pytest
-import numpy as np
 from typing import Dict, Generator
+
+import numpy as np
+import pytest
 from fastapi.testclient import TestClient
 from warehouse_routing.api.main import app
+from warehouse_routing.core.config import BASE_REWARDS_MATRIX, LOCATIONS
 from warehouse_routing.core.q_learning import WarehouseRouteOptimizer
-from warehouse_routing.core.config import LOCATIONS, BASE_REWARDS_MATRIX
 
 
 @pytest.fixture

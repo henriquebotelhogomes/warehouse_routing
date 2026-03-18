@@ -1,3 +1,4 @@
+# render.yaml
 services:
   # --- API (Backend) ---
   - type: web
@@ -5,6 +6,7 @@ services:
     env: docker
     plan: free
     region: ohio
+    branch: master
     dockerContext: .
     dockerfilePath: Dockerfile
     envVars:
@@ -12,6 +14,7 @@ services:
         value: /app/src
       - key: MODEL_SAVE_PATH
         value: /app/data/model.joblib
+    # O Render injeta a porta automaticamente na variável $PORT
     dockerCommand: uvicorn warehouse_routing.api.main:app --host 0.0.0.0 --port $PORT
 
   # --- Dashboard (Frontend) ---
@@ -20,11 +23,13 @@ services:
     env: docker
     plan: free
     region: ohio
+    branch: master
     dockerContext: .
     dockerfilePath: Dockerfile
     envVars:
       - key: API_URL
-        value: https://warehouse-api.onrender.com
+        # Substitua pela URL real que o Render gerar para sua API
+        value: https://warehouse-api-upii.onrender.com
       - key: PYTHONPATH
         value: /app/src
     dockerCommand: streamlit run src/warehouse_routing/app/dashboard.py --server.port $PORT --server.address 0.0.0.0
