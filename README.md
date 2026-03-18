@@ -1,121 +1,116 @@
-# 🤖 Warehouse AI Route Optimizer
+# 🤖 AI Warehouse Optimizer: Otimização Logística com Q-Learning
 
-[![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/release/python-3120/)
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.110.0-05998b.svg)](https://fastapi.tiangolo.com/)
-[![Docker](https://img.shields.io/badge/Docker-Enabled-2496ed.svg)](https://www.docker.com/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Python Version](https://img.shields.io/badge/python-3.12%2B-blue.svg)](https://www.python.org/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.100%2B-05998b.svg)](https://fastapi.tiangolo.com/)
+[![Streamlit](https://img.shields.io/badge/Streamlit-1.30%2B-ff4b4b.svg)](https://streamlit.io/)
+[![Code Style: Ruff](https://img.shields.io/badge/code%20style-ruff-000000.svg)](https://github.com/astral-sh/ruff)
+[![Type Checking: Mypy](https://img.shields.io/badge/type%20checking-mypy-blue.svg)](http://mypy-lang.org/)
 
-**Warehouse AI Route Optimizer** é uma solução de ponta para logística inteligente, utilizando **Aprendizado por Reforço (Q-Learning)** para otimizar rotas de picking em armazéns dinâmicos. O sistema é capaz de recalcular trajetórias em milissegundos diante de bloqueios em tempo real, oferecendo uma interface visual completa e monitoramento de performance de nível de produção.
+> **Status do Projeto:** 🚀 Live em Produção  
+> 
+> **Link da Aplicação:** [https://warehouse-dashboard-zre8.onrender.com](https://warehouse-dashboard-zre8.onrender.com)
+> 
+> **Link da API:** [https://warehouse-api-upii.onrender.com/docs](https://warehouse-api-upii.onrender.com/docs)
+
+Este projeto implementa um sistema inteligente de roteamento para armazéns logísticos utilizando **Aprendizado por Reforço (Q-Learning)**. O sistema é capaz de encontrar a trajetória mais eficiente entre pontos de coleta e entrega, adaptando-se dinamicamente a obstruções e priorizando pontos intermediários.
 
 ---
 
-## 🏗️ Arquitetura do Sistema
+## 🎯 Destaques Técnicos (Recruiter Focus)
 
-O projeto segue padrões modernos de arquitetura de software, separando a inteligência computacional da interface de entrega.
-```mermaid
-graph TD
-    subgraph "Client Layer"
-    end
+Este repositório demonstra competências de nível **Sênior** em engenharia de software e IA aplicada:
 
-    subgraph "Intelligence Layer (Core)"
-        B --> C[Q-Learning Engine]
-        C --> D[Optuna Tuner]
-        C --> E[NetworkX Graph]
-    end
+*   **IA em Produção:** Implementação de Q-Learning com persistência de estado (`joblib`) e ciclo de vida resiliente.
+*   **Arquitetura de Microserviços:** Separação clara entre **Backend (FastAPI)** e **Frontend (Streamlit)**, garantindo escalabilidade independente.
+*   **Observabilidade & Logs:** Uso de `Loguru` para logs estruturados e `Correlation ID` para rastreabilidade de requisições ponta a ponta.
+*   **Qualidade de Código:** Pipeline de CI/CD validando tipagem estática com `Mypy`, linting com `Ruff` e testes automatizados com `Pytest`.
+*   **DevOps Moderno:** Containerização multi-stage com `Docker`, orquestração via `Docker Compose` e infraestrutura como código (IaC) via `Render Blueprints`.
 
-    subgraph "Persistence & Observability"
-        C --> F[Joblib Model Storage]
-        B --> G[Loguru Structured Logs]
-        B --> H[Correlation ID Middleware]
-    end
-````
+---
+
+## 🚀 Diferenciais Técnicos & Engenharia de Produção
+
+Diferente de implementações acadêmicas, este projeto foca em **robustez e confiabilidade**:
+
+### 1. Gestão de Ciclo de Vida (Lifespan Management)
+A API utiliza o padrão `lifespan` do FastAPI para gerenciar o estado da IA. Implementamos uma lógica de **carregamento resiliente**: se o arquivo de modelo (`.joblib`) não for encontrado (ex: primeiro deploy), o sistema inicia sem cache e treina sob demanda, evitando o crash do container (*Cold Start Resilience*).
+
+### 2. Observabilidade Sênior
+*   **Logs Estruturados:** Configuração customizada do `Loguru` para saída padronizada, facilitando a ingestão por ferramentas de monitoramento.
+*   **Tracing:** Implementação de `Correlation ID Middleware`, injetando um ID único em cada requisição para rastrear o fluxo de dados entre logs de diferentes serviços.
+
+### 3. Middleware de Performance
+Desenvolvimento de um middleware customizado para medir a latência de processamento da IA, injetando o tempo de resposta no header HTTP `X-Process-Time-Ms`.
+
+### 4. Interface Reativa (Streamlit UX)
+Uso de `st.session_state` e gerenciamento de chaves de widgets para resolver problemas de reatividade. O dashboard habilita/desabilita campos de entrada instantaneamente com base na lógica de negócio, sem a necessidade de submissão de formulários lentos.
+
 ---
 ## 📂 Estrutura do Projeto
 ```
 warehouse_routing/
-├── data/                       # Persistência da Q-Table (Inteligência da IA)
-├── src/                        # Código-fonte principal (Src Layout)
-│   └── warehouse_routing/
-│       ├── __init__.py
-│       ├── api/                # Camada de Interface HTTP (FastAPI)
-│       │   ├── __init__.py
-│       │   ├── main.py         # Endpoints e Middlewares
-│       │   └── schemas.py      # Contratos Pydantic (Validação)
-│       ├── core/               # O Coração do Sistema (Lógica de Negócio)
-│       │   ├── __init__.py
-│       │   ├── config.py       # Configurações e Matriz de Recompensas
-│       │   ├── q_learning.py   # Motor de Reinforcement Learning
-│       │   ├── tuner.py        # Otimização com Optuna
-│       │   └── visualizer.py   # Geração de Gráficos e Heatmaps
-│       └── app/                # Interface Visual (Frontend)
-│           ├── __init__.py
-│           └── dashboard.py    # Painel Streamlit
-├── tests/                      # Testes Unitários e de Integração
-├── .dockerignore               # Filtros para imagens Docker
-├── .env                        # Variáveis de ambiente (Alpha, Gamma, etc.)
-├── docker-compose.yml          # Orquestração de Containers
-├── Dockerfile                  # Receita de Build Multi-stage
-├── pyproject.toml              # Gestão de Dependências e Tooling (PEP 621)
-└── run.py                      # Script de entrada para execução local
+├── data/                    # Armazenamento persistente do modelo (.joblib)
+├── src/
+│   └── warehouse_routing/   # Pacote principal
+│       ├── api/             # Camada de Exposição (FastAPI)
+│       │   ├── main.py      # Entrypoint da API e Lifespan management
+│       │   └── schemas.py   # Definições Pydantic (Contratos de Dados)
+│       ├── app/             # Camada de Visão (Streamlit)
+│       │   └── dashboard.py # Interface interativa e reativa
+│       └── core/            # O "Cérebro" (Lógica de Negócio e IA)
+│           ├── config.py    # Gestão de configurações e variáveis de ambiente
+│           ├── q_learning.py# Implementação do Agente de Reinforcement Learning
+│           └── visualizer.py# Engine de geração de grafos e heatmaps
+├── tests/                   # Suíte de testes automatizados (Unitários e Integração)
+├── Dockerfile               # Build multi-stage otimizado para produção
+├── docker-compose.yml       # Orquestração local de múltiplos serviços
+├── pyproject.toml           # Gestão moderna de dependências (PEP 518)
+└── render.yaml              # Infraestrutura como Código (Blueprint do Render)
+```
+
+## Como Executar
+### Via Docker (Recomendado)
+Para subir todo o ecossistema (IA + API + Dashboard) com um único comando:
+```
+docker-compose up --build
+```
+* **Dashboard**: http://localhost:8501
+* **Swagger UI**: http://localhost:8000/docs
+
+## Desenvolvimento Local
+```
+# Instalar dependências em modo editável
+pip install -e ".[dev]"
+
+# Rodar API
+uvicorn warehouse_routing.api.main:app --reload
+
+# Rodar Dashboard
+streamlit run src/warehouse_routing/app/dashboard.py
 ```
 ---
-## 🌟 Diferenciais Técnicos (Destaque para Recrutadores)
-* **IA Dinâmica**: Implementação de Q-Learning com suporte a alteração de topologia em tempo real (bloqueio de corredores).
-* **Otimização de Hiperparâmetros**: Uso de Optuna para encontrar automaticamente os melhores valores de **Alpha** (taxa de aprendizado) e **Gamma** (fator de desconto).
-* **Observabilidade Sênior**:
-
-  * Injeção de X-Process-Time-Ms nos headers de resposta.
-  * Rastreabilidade total com Correlation IDs em todos os logs.
-
-
-* **Visualização Científica**: Geração dinâmica de Heatmaps (Seaborn) e Grafos (NetworkX) servidos via Streaming de imagem.
-* **Infraestrutura Moderna**: Dockerização multi-stage e orquestração com Docker Compose.
----
-## 🧠 O Motor de IA: Q-Learning
-O agente aprende a rota ótima maximizando a recompensa acumulada através da equação de Bellman:
-
-**Q(s,a)=Q(s,a)+α[R(s,a)+γmax⁡Q(s′,a′)−Q(s,a)]Q(s, a) = Q(s, a) + \alpha [R(s, a) + \gamma \max Q(s', a') - Q(s, a)]Q(s,a)=Q(s,a)+α[R(s,a)+γmaxQ(s′,a′)−Q(s,a)]** 
-
-Onde:
-* **$\alpha$ (Alpha)**: Define o quanto a nova informação sobrescreve a antiga.
-* **$\gamma$ (Gamma)**: Define a importância de recompensas futuras (visão de longo prazo).
----
-## 🚀 Como Executar (Docker First)
-A maneira mais rápida e profissional de rodar o ecossistema completo é via **Docker Compose**.
-### Pré-requisitos
-* Docker e Docker Compose instalados.
-## Passo a Passo
-1. Clonar o repositório:
+## 🧪 Qualidade e Verificação
 ```
-   git clone https://github.com/seu-usuario/warehouse-routing.git
-   cd warehouse-routing
-```
-2. Subir o ecossistema:
-```
-   docker-compose up --build
-```
-3. Acessar as interfaces:
-* **Dashboard Interativo**: http://localhost:8501
-* **Documentação API (Swagger)**: http://localhost:8000/docs
----
-## 🛠️ Stack Tecnológica
+# Executar suíte de testes
+pytest tests/
 
-| Categoria                | Tecnologia                               |
-|--------------------------|------------------------------------------|
-| **Linguagem**            | Python 3.12+                             |
-| **Framework API**        | FastAPI                                  |
-| **IA / Matemática**      | NumPy, Optuna, Joblib                    |
-| **Visualização**         | Streamlit, Matplotlib, Seaborn, NetworkX |
-| **Logs / Monitoramento** | Loguru, ASGI Correlation ID              |
-| **DevOps**               | Docker, Docker Compose, GitHub Actions   |
----
-## 📈 Endpoints Principais
-* **POST /api/v1/routes**: Calcula a rota ótima entre dois pontos.
-* **PUT /api/v1/warehouse/paths**: Bloqueia ou abre corredores dinamicamente.
-* **GET /api/v1/visualize/graph**: Retorna a imagem do mapa atual.
-* **POST /api/v1/ai/retrain**: Força o retreino total da inteligência.
----
-## 👨‍💻 AutorHenrique Botelho Gomes
-_Engenheiro de Software Sênior | Pós-graduando em IA (UFV)_
+# Verificar tipagem estática
+mypy src/
 
+# Formatação e Linting
+ruff check src/
+```
+---
+## 🧠 O Algoritmo: Q-Learning
 
+O motor de decisão utiliza uma Matriz de Recompensas para aprender a topologia do armazém. Através de episódios de treinamento, a IA preenche uma Q-Table que mapeia a melhor ação para cada estado possível. Diferente de algoritmos estáticos, o Q-Learning permite que o sistema se adapte a mudanças dinâmicas no layout do armazém sem necessidade de reprogramação.
+
+---
+## 👨‍💻 Autor
+**Henrique Botelho Gomes**
+
+*Engenheiro de Software Sênior | Pós-graduando em IA (UFV)*
+* **LinkedIn**: [linkedin.com/in/henriquebotelhogomes]()
+* **GitHub**: [github.com/henriquebotelhogomes]()
+---
+*Este projeto foi desenvolvido com foco em escalabilidade, performance e padrões de engenharia de software modernos.*
