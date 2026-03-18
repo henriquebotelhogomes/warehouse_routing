@@ -43,5 +43,4 @@ ignore_missing_imports = true
 [tool.ruff]
 line-length = 100
 target-version = "py312"
-# Adicionando regras básicas de linting para o Ruff ser mais proativo
-lint.select = ["E", "F", "I", "B"]
+lint.select = ["E", "F", "I", "B"] # Ativa regras essenciais de erro, imports e bugs
