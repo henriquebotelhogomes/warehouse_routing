@@ -1,5 +1,6 @@
 import sys
 import time
+import os
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 
@@ -30,7 +31,7 @@ def inject_correlation_id(record) -> None:
     record["extra"]["request_id"] = correlation_id.get() or "system"
 
 
-# Configuração corrigida do Loguru (patcher no singular)
+# Configuração do Loguru com patcher para ID de correlação
 logger.configure(patcher=inject_correlation_id)
 
 # Instância global do motor de IA (Singleton na prática da API)
@@ -43,19 +44,39 @@ optimizer = WarehouseRouteOptimizer(
 
 
 # =============================================================================
-# LIFESPAN (Gerenciamento de Ciclo de Vida do App)
+# LIFESPAN (Gerenciamento de Ciclo de Vida do App - RESILIENTE)
 # =============================================================================
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """
-    Gerencia o startup e shutdown.
-    Carrega o conhecimento da IA ao iniciar e salva ao encerrar.
+    Gerencia o startup e shutdown de forma resiliente para produção.
+    Evita que a API quebre se o arquivo de modelo não existir no primeiro deploy.
     """
-    logger.info("🚀 Iniciando API e carregando inteligência da IA...")
-    optimizer.load_model(settings.model_save_path)
+    logger.info("🚀 Iniciando API...")
+
+    # Verifica se o diretório de dados existe, se não, cria
+    os.makedirs(os.path.dirname(settings.model_save_path), exist_ok=True)
+
+    # Tenta carregar o modelo persistido
+    if os.path.exists(settings.model_save_path):
+        try:
+            logger.info(f"📂 Carregando inteligência da IA de: {settings.model_save_path}")
+            optimizer.load_model(settings.model_save_path)
+        except Exception as e:
+            logger.error(f"❌ Erro ao carregar modelo: {e}. A IA iniciará sem cache.")
+    else:
+        logger.warning(
+            f"⚠️ Modelo não encontrado em {settings.model_save_path}. Iniciando treinamento sob demanda."
+        )
+
     yield
-    logger.info("💾 Encerrando API e persistindo conhecimento no disco...")
-    optimizer.save_model(settings.model_save_path)
+
+    # No shutdown, persiste o conhecimento adquirido
+    try:
+        logger.info(f"💾 Encerrando API e persistindo conhecimento em: {settings.model_save_path}")
+        optimizer.save_model(settings.model_save_path)
+    except Exception as e:
+        logger.error(f"❌ Erro ao salvar modelo no shutdown: {e}")
 
 
 # Inicialização do App FastAPI
@@ -70,10 +91,10 @@ app = FastAPI(
 # MIDDLEWARES (Segurança e Performance)
 # =============================================================================
 
-# 1. Configuração de CORS para Produção (Permite que o Dashboard acesse a API)
+# 1. Configuração de CORS para Produção
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Em produção restrita, use ['https://seu-dominio.com']
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -102,10 +123,7 @@ async def perf_middleware(request: Request, call_next) -> Response:
 
 @app.exception_handler(ValueError)
 async def value_error_exception_handler(request: Request, exc: ValueError) -> Response:
-    """
-    Captura erros de validação de locais (ex: local 'Z' não existe).
-    Converte exceções do Core em HTTP 400 amigáveis.
-    """
+    """Captura erros de validação de locais e converte em HTTP 400."""
     logger.warning(f"Erro de validação de negócio: {exc}")
     return JSONResponse(
         status_code=status.HTTP_400_BAD_REQUEST,
@@ -120,7 +138,7 @@ async def value_error_exception_handler(request: Request, exc: ValueError) -> Re
 
 @app.post("/api/v1/routes", response_model=RouteResponse, tags=["Rotas"])
 async def get_route(req: RouteRequest) -> RouteResponse:
-    """Calcula a rota ótima entre dois pontos, com suporte a ponto intermediário."""
+    """Calcula a rota ótima entre dois pontos."""
     if req.intermediary:
         route = optimizer.get_route_with_intermediary(req.start, req.intermediary, req.end)
     else:
@@ -131,7 +149,7 @@ async def get_route(req: RouteRequest) -> RouteResponse:
 
 @app.put("/api/v1/warehouse/paths", tags=["Configuração"])
 async def update_path(req: PathUpdateRequest) -> dict:
-    """Bloqueia ou libera caminhos no armazém dinamicamente (ex: corredor obstruído)."""
+    """Bloqueia ou libera caminhos no armazém dinamicamente."""
     optimizer.update_path(req.location_a, req.location_b, req.is_open)
     optimizer.save_model(settings.model_save_path)
     return {"message": f"Conexão entre {req.location_a} e {req.location_b} atualizada."}
@@ -156,7 +174,7 @@ async def view_q_table(target: str) -> StreamingResponse:
 
 @app.post("/api/v1/ai/retrain", tags=["IA Admin"])
 async def force_ai_retrain() -> dict:
-    """Limpa o cache e força o retreino de todos os locais (Reset de Inteligência)."""
+    """Limpa o cache e força o retreino de todos os locais."""
     logger.warning("Solicitado retreino total da inteligência...")
     optimizer._q_table_cache.clear()
     for loc in LOCATIONS:

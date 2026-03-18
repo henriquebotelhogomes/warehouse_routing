@@ -3,7 +3,6 @@ services:
   - type: web
     name: warehouse-api
     env: docker
-    repo: https://github.com/henriquebotelhogomes/warehouse_routing
     plan: free
     region: ohio
     dockerContext: .
@@ -13,21 +12,22 @@ services:
         value: /app/src
       - key: MODEL_SAVE_PATH
         value: /app/data/model.joblib
-    # ✅ CORREÇÃO: Forçamos a API a ouvir na porta que o Render mandar
+    # ✅ CORREÇÃO: Usamos $PORT para o Render conseguir conectar
     dockerCommand: uvicorn warehouse_routing.api.main:app --host 0.0.0.0 --port $PORT
 
   # --- Dashboard (Frontend) ---
   - type: web
     name: warehouse-dashboard
     env: docker
-    repo: https://github.com/henriquebotelhogomes/warehouse_routing
     plan: free
     region: ohio
+    dockerContext: .
+    dockerfilePath: Dockerfile
     envVars:
       - key: API_URL
-        # ⚠️ Após o primeiro deploy da API, atualize este link com a URL real
+        # ⚠️ IMPORTANTE: Após o deploy da API, verifique se a URL é exatamente esta
         value: https://warehouse-api.onrender.com
       - key: PYTHONPATH
         value: /app/src
-    # ✅ CORREÇÃO: Streamlit também deve usar a variável $PORT do Render
-    dockerCommand: streamlit run src/warehouse_routing/app/dashboard.py --server.port $PORT --server.address 0.0.0.0
+    # ✅ CORREÇÃO: Streamlit também deve respeitar a porta do Render
+    dockerCommand: python -m streamlit run src/warehouse_routing/app/dashboard.py --server.port $PORT --server.address 0.0.0.0
