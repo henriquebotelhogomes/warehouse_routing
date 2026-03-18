@@ -1,16 +1,19 @@
+from __future__ import annotations
+
 import os
 import sys
 import time
 from contextlib import asynccontextmanager
-from typing import AsyncGenerator
+from typing import TYPE_CHECKING, AsyncGenerator
 
 from asgi_correlation_id import CorrelationIdMiddleware, correlation_id
 from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
+from loguru import logger
 
-# ✅ Importação necessária para o type hint do Mypy
-from loguru import Record, logger
+if TYPE_CHECKING:
+    from loguru import Record
 
 from warehouse_routing.api.schemas import PathUpdateRequest, RouteRequest, RouteResponse
 from warehouse_routing.core.config import BASE_REWARDS_MATRIX, LOCATIONS, settings
