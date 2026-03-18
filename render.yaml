@@ -1,27 +1,35 @@
 services:
-  # Serviço da API (Backend)
+  # --- Serviço da API (Backend) ---
   - type: web
     name: warehouse-api
     env: docker
-    repo: https://github.com/seu-usuario/warehouse_routing # Seu repo
+    repo: https://github.com/henriquebotelhogomes/warehouse_routing
     plan: free
     region: ohio
+    dockerContext: .
+    dockerfilePath: Dockerfile
+    healthCheckPath: /api/v1/visualize/graph # Caminho simples para validar se subiu
     envVars:
       - key: PYTHONPATH
         value: /app/src
       - key: MODEL_SAVE_PATH
         value: /app/data/model.joblib
+      - key: PORT
+        value: 8000
 
-  # Serviço do Dashboard (Frontend)
+  # --- Serviço do Dashboard (Frontend) ---
   - type: web
     name: warehouse-dashboard
     env: docker
-    repo: https://github.com/seu-usuario/warehouse_routing
+    repo: https://github.com/henriquebotelhogomes/warehouse_routing
     plan: free
     region: ohio
+    dockerContext: .
+    dockerfilePath: Dockerfile
     envVars:
       - key: API_URL
-        value: https://warehouse-api.onrender.com # URL que o Render vai gerar
+        value: https://warehouse-api.onrender.com # ⚠️ Valide se este será o link final
       - key: PYTHONPATH
         value: /app/src
+    # Sobrescreve o CMD do Dockerfile para rodar o Streamlit
     dockerCommand: python -m streamlit run src/warehouse_routing/app/dashboard.py --server.port $PORT --server.address 0.0.0.0
