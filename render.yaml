@@ -1,0 +1,27 @@
+services:
+  # Serviço da API (Backend)
+  - type: web
+    name: warehouse-api
+    env: docker
+    repo: https://github.com/seu-usuario/warehouse_routing # Seu repo
+    plan: free
+    region: ohio
+    envVars:
+      - key: PYTHONPATH
+        value: /app/src
+      - key: MODEL_SAVE_PATH
+        value: /app/data/model.joblib
+
+  # Serviço do Dashboard (Frontend)
+  - type: web
+    name: warehouse-dashboard
+    env: docker
+    repo: https://github.com/seu-usuario/warehouse_routing
+    plan: free
+    region: ohio
+    envVars:
+      - key: API_URL
+        value: https://warehouse-api.onrender.com # URL que o Render vai gerar
+      - key: PYTHONPATH
+        value: /app/src
+    dockerCommand: python -m streamlit run src/warehouse_routing/app/dashboard.py --server.port $PORT --server.address 0.0.0.0

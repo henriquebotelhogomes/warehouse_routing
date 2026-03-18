@@ -1,0 +1,44 @@
+[project]
+name = "warehouse_routing"
+version = "0.1.0"
+description = "Otimizador de rotas de armazém usando Q-Learning"
+authors = [{ name = "Henrique Botelho Gomes" }]
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.110.0",
+    "uvicorn>=0.27.0",
+    "pydantic>=2.6.0",
+    "pydantic-settings>=2.2.1",
+    "loguru>=0.7.2",
+    "numpy>=1.26.0",
+    "networkx>=3.2.0",
+    "matplotlib>=3.8.0",
+    "seaborn>=0.13.0",
+    "joblib>=1.3.0",
+    "requests>=2.31.0",
+    "asgi-correlation-id>=4.3.0",
+    "streamlit>=1.32.0",
+]
+
+[tool.uv]
+dev-dependencies = [
+    "pytest>=8.0.0",
+    "mypy>=1.9.0",
+    "ruff>=0.3.0",
+    "types-requests>=2.31.0.20240125",
+]
+
+[tool.mypy]
+python_version = "3.12"
+strict = false                         # Desativa o modo estrito global
+# Desativa especificamente o que estava me irritando:
+disallow_untyped_defs = false          # Permite funções sem anotação de tipo
+disallow_incomplete_defs = false       # Permite anotações parciais
+check_untyped_defs = true              # Ainda checa o corpo das funções (bom para pegar bugs)
+warn_return_any = false
+warn_unused_ignores = false
+ignore_missing_imports = true          # Ignora bibliotecas sem stubs (como o requests)
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"

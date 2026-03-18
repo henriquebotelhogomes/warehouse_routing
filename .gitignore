@@ -1,0 +1,21 @@
+# Ambientes Virtuais
+.venv/
+venv/
+env/
+
+# Python Cache e Build
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Arquivos de IDE
+.idea/
+.vscode/
+
+# Modelos salvos e variáveis de ambiente
+*.joblib
+.env

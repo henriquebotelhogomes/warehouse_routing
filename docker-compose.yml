@@ -1,0 +1,32 @@
+services:
+  api:
+    build: .
+    container_name: warehouse_api
+    ports:
+      - "8000:8000"
+    environment:
+      - PYTHONPATH=/app/src
+      - MODEL_SAVE_PATH=/app/data/model.joblib
+    volumes:
+      - ./data:/app/data
+      - ./tests:/app/tests
+    # USO DE 'python -m': Mais robusto e evita erros de PATH
+    command: python -m uvicorn warehouse_routing.api.main:app --host 0.0.0.0 --port 8000
+    restart: always
+
+  dashboard:
+    build: .
+    container_name: warehouse_dashboard
+    ports:
+      - "8501:8501"
+    environment:
+      - PYTHONPATH=/app/src
+      - API_URL=http://api:8000
+    # USO DE 'python -m': Garante que o streamlit seja encontrado
+    command: python -m streamlit run src/warehouse_routing/app/dashboard.py --server.port 8501 --server.address 0.0.0.0
+    depends_on:
+      - api
+    restart: always
+
+volumes:
+  data:
