@@ -1,11 +1,11 @@
 from fastapi.testclient import TestClient
-from warehouse_routing.api.main import app
 
-client = TestClient(app)
+# 🔴 REMOVEMOS a linha 'client = TestClient(app)' daqui.
+# Agora o Pytest vai buscar o 'client' automaticamente no conftest.py
 
 
-def test_api_calculate_route_success() -> None:
-    """Testa o endpoint de cálculo de rota."""
+def test_api_calculate_route_success(client: TestClient) -> None:
+    """Testa o endpoint de cálculo de rota com sucesso."""
     response = client.post("/api/v1/routes", json={"start": "A", "end": "G"})
     assert response.status_code == 200
     data = response.json()
@@ -14,14 +14,14 @@ def test_api_calculate_route_success() -> None:
     assert data["route"][-1] == "G"
 
 
-def test_api_invalid_location() -> None:
+def test_api_invalid_location(client: TestClient) -> None:
     """Testa erro 400 ao enviar local inexistente."""
     response = client.post("/api/v1/routes", json={"start": "Z", "end": "G"})
     assert response.status_code == 400
     assert "detail" in response.json()
 
 
-def test_api_visualize_graph() -> None:
+def test_api_visualize_graph(client: TestClient) -> None:
     """Testa se o endpoint de imagem retorna um PNG válido."""
     response = client.get("/api/v1/visualize/graph")
     assert response.status_code == 200

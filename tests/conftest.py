@@ -1,8 +1,17 @@
 import pytest
 import numpy as np
+from typing import Dict, Generator
+from fastapi.testclient import TestClient
+from warehouse_routing.api.main import app
 from warehouse_routing.core.q_learning import WarehouseRouteOptimizer
 from warehouse_routing.core.config import LOCATIONS, BASE_REWARDS_MATRIX
-from typing import Dict
+
+
+@pytest.fixture
+def client() -> Generator[TestClient, None, None]:
+    """Cria o cliente de teste para a API (Necessário para o test_api.py)."""
+    with TestClient(app) as c:
+        yield c
 
 
 @pytest.fixture
