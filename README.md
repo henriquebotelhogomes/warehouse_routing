@@ -72,6 +72,10 @@ warehouse_routing/
 ### Via Docker (Recomendado)
 Para subir todo o ecossistema (IA + API + Dashboard) com um único comando:
 ```
+# 1. Clone o repositório
+git clone https://github.com/henriquebotelhogomes/warehouse_routing.git
+
+# 2. Suba os containers
 docker-compose up --build
 ```
 * **Dashboard**: http://localhost:8501

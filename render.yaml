@@ -12,7 +12,6 @@ services:
         value: /app/src
       - key: MODEL_SAVE_PATH
         value: /app/data/model.joblib
-    # ✅ CORREÇÃO: Usamos $PORT para o Render conseguir conectar
     dockerCommand: uvicorn warehouse_routing.api.main:app --host 0.0.0.0 --port $PORT
 
   # --- Dashboard (Frontend) ---
@@ -25,9 +24,7 @@ services:
     dockerfilePath: Dockerfile
     envVars:
       - key: API_URL
-        # ⚠️ IMPORTANTE: Após o deploy da API, verifique se a URL é exatamente esta
         value: https://warehouse-api.onrender.com
       - key: PYTHONPATH
         value: /app/src
-    # ✅ CORREÇÃO: Streamlit também deve respeitar a porta do Render
-    dockerCommand: python -m streamlit run src/warehouse_routing/app/dashboard.py --server.port $PORT --server.address 0.0.0.0
+    dockerCommand: streamlit run src/warehouse_routing/app/dashboard.py --server.port $PORT --server.address 0.0.0.0

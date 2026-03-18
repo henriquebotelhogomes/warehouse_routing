@@ -1,18 +1,55 @@
-name: CI Quality Gate
-on: [push]
+# .github/workflows/main.yml
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
+
 jobs:
-  test:
+  quality-and-tests:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with: {python-version: '3.12'}
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          version: "latest"
+          enable-cache: true
+
+      - name: Set up Python 3.12
+        run: uv python install 3.12
+
       - name: Install dependencies
-        run: pip install .[dev]
-      - name: Lint & Type Check
         run: |
-          ruff check .
-          mypy src/
-      - name: Run Tests
-        run: pytest tests/
+          uv sync --all-extras --dev
+
+      - name: Lint and Format check (Ruff)
+        run: |
+          uv run ruff check src/
+          uv run ruff format --check src/
+
+      - name: Static Type Check (Mypy)
+        run: |
+          uv run mypy src/
+
+      - name: Run Tests (Pytest)
+        run: |
+          uv run pytest tests/ --cov=src --cov-report=xml
+
+  docker-build-check:
+    needs: quality-and-tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker Image (Dry Run)
+        run: |
+          docker build -t warehouse-api:test .
