@@ -1,5 +1,5 @@
 services:
-  # --- Serviço da API (Backend) ---
+  # --- API (Backend) ---
   - type: web
     name: warehouse-api
     env: docker
@@ -8,28 +8,26 @@ services:
     region: ohio
     dockerContext: .
     dockerfilePath: Dockerfile
-    healthCheckPath: /api/v1/visualize/graph # Caminho simples para validar se subiu
     envVars:
       - key: PYTHONPATH
         value: /app/src
       - key: MODEL_SAVE_PATH
         value: /app/data/model.joblib
-      - key: PORT
-        value: 8000
+    # ✅ CORREÇÃO: Forçamos a API a ouvir na porta que o Render mandar
+    dockerCommand: uvicorn warehouse_routing.api.main:app --host 0.0.0.0 --port $PORT
 
-  # --- Serviço do Dashboard (Frontend) ---
+  # --- Dashboard (Frontend) ---
   - type: web
     name: warehouse-dashboard
     env: docker
     repo: https://github.com/henriquebotelhogomes/warehouse_routing
     plan: free
     region: ohio
-    dockerContext: .
-    dockerfilePath: Dockerfile
     envVars:
       - key: API_URL
-        value: https://warehouse-api.onrender.com # ⚠️ Valide se este será o link final
+        # ⚠️ Após o primeiro deploy da API, atualize este link com a URL real
+        value: https://warehouse-api.onrender.com
       - key: PYTHONPATH
         value: /app/src
-    # Sobrescreve o CMD do Dockerfile para rodar o Streamlit
-    dockerCommand: python -m streamlit run src/warehouse_routing/app/dashboard.py --server.port $PORT --server.address 0.0.0.0
+    # ✅ CORREÇÃO: Streamlit também deve usar a variável $PORT do Render
+    dockerCommand: streamlit run src/warehouse_routing/app/dashboard.py --server.port $PORT --server.address 0.0.0.0
