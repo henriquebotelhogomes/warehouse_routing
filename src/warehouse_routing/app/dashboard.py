@@ -15,7 +15,7 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# Estilização customizada com correção de contraste para as métricas
+# Estilização customizada
 st.markdown(
     """
     <style>
@@ -28,6 +28,7 @@ st.markdown(
         height: 3em;
         background-color: #007bff;
         color: white;
+        font-weight: bold;
     }
     [data-testid="stMetric"] {
         padding: 20px;
@@ -60,10 +61,10 @@ LOCATIONS: List[str] = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "
 
 
 # =============================================================================
-# FUNÇÕES UTILITÁRIAS (PROXY DE DADOS)
+# FUNÇÕES UTILITÁRIAS
 # =============================================================================
 def fetch_image_from_api(endpoint: str) -> Optional[bytes]:
-    """Busca a imagem da API via rede interna (Server-to-Server)."""
+    """Busca a imagem da API via rede interna."""
     try:
         url: str = f"{api_base_url}{endpoint}"
         response = requests.get(url, timeout=10)
@@ -86,21 +87,24 @@ col_plan, col_viz = st.columns([1, 2], gap="large")
 with col_plan:
     st.subheader("📍 Planejamento de Rota")
 
-    with st.form("route_form"):
-        st.info("Defina os pontos de movimentação de carga.")
-        start_node: str = st.selectbox("Ponto de Partida (Origem)", LOCATIONS, index=0)
-        end_node: str = st.selectbox("Ponto de Entrega (Destino)", LOCATIONS, index=6)
+    # 🔴 REMOVEMOS O st.form DAQUI PARA PERMITIR REATIVIDADE
+    st.info("Defina os pontos de movimentação de carga.")
+    start_node: str = st.selectbox("Ponto de Partida (Origem)", LOCATIONS, index=0)
+    end_node: str = st.selectbox("Ponto de Entrega (Destino)", LOCATIONS, index=6)
 
-        st.markdown("---")
-        use_inter: bool = st.checkbox("Incluir Ponto de Coleta Intermediário")
+    st.markdown("---")
 
-        # Opções para ponto intermediário (pode ser None)
-        inter_options: List[Optional[str]] = [None] + list(LOCATIONS)  # type: ignore
-        inter_node: Optional[str] = st.selectbox(
-            "Ponto de Coleta", options=inter_options, index=0, disabled=not use_inter
-        )
+    # ✅ Agora o checkbox dispara um rerun imediato ao ser clicado
+    use_inter: bool = st.checkbox("Incluir Ponto de Coleta Intermediário", key="chk_use_inter")
 
-        submit: bool = st.form_submit_button("🚀 Calcular Rota Ótima")
+    # ✅ O selectbox agora reage instantaneamente ao valor de 'use_inter'
+    inter_options: List[Optional[str]] = [None] + list(LOCATIONS)  # type: ignore
+    inter_node: Optional[str] = st.selectbox(
+        "Ponto de Coleta", options=inter_options, index=0, disabled=not use_inter
+    )
+
+    # ✅ Substituímos o st.form_submit_button por um st.button comum
+    submit: bool = st.button("🚀 Calcular Rota Ótima", type="primary")
 
     if submit:
         with st.spinner("IA calculando a melhor trajetória..."):
@@ -137,7 +141,7 @@ with col_viz:
             st.image(
                 graph_img,
                 caption="Topologia Atual do Armazém",
-                width="content",
+                width="content",  # Atualizado para o padrão novo do Streamlit
             )
             if st.button("🔄 Atualizar Mapa"):
                 st.rerun()
