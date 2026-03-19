@@ -49,23 +49,40 @@ Uso de `st.session_state` e gerenciamento de chaves de widgets para resolver pro
 ## 📂 Estrutura do Projeto
 ```
 warehouse_routing/
-├── data/                    # Armazenamento persistente do modelo (.joblib)
 ├── src/
-│   └── warehouse_routing/   # Pacote principal
-│       ├── api/             # Camada de Exposição (FastAPI)
-│       │   ├── main.py      # Entrypoint da API e Lifespan management
-│       │   └── schemas.py   # Definições Pydantic (Contratos de Dados)
-│       ├── app/             # Camada de Visão (Streamlit)
-│       │   └── dashboard.py # Interface interativa e reativa
-│       └── core/            # O "Cérebro" (Lógica de Negócio e IA)
-│           ├── config.py    # Gestão de configurações e variáveis de ambiente
-│           ├── q_learning.py# Implementação do Agente de Reinforcement Learning
-│           └── visualizer.py# Engine de geração de grafos e heatmaps
-├── tests/                   # Suíte de testes automatizados (Unitários e Integração)
-├── Dockerfile               # Build multi-stage otimizado para produção
-├── docker-compose.yml       # Orquestração local de múltiplos serviços
-├── pyproject.toml           # Gestão moderna de dependências (PEP 518)
-└── render.yaml              # Infraestrutura como Código (Blueprint do Render)
+│   └── warehouse_routing/
+│       ├── api/                          # Endpoints FastAPI para rotas e visualizações
+│       │   ├── __init__.py               # Inicialização do pacote API
+│       │   ├── main.py                   # App FastAPI principal com lifespan, middlewares e rotas (/routes, /visualize, /health)
+│       │   └── schemas.py                # Modelos Pydantic para validação de requests/responses (RouteRequest, RouteResponse)
+│       ├── core/                         # Lógica central de IA e otimização
+│       │   ├── __init__.py               # Inicialização do pacote core
+│       │   ├── config.py                 # Configurações globais (LOCATIONS, BASE_REWARDS_MATRIX, settings com Pydantic)
+│       │   ├── q_learning.py             # Implementação do WarehouseRouteOptimizer (Q-Learning com treinamento e inferência)
+│       │   ├── tuner.py                  # Otimização de hiperparâmetros (gamma, alpha) para o Q-Learning
+│       │   └── visualizer.py             # Geração de imagens (grafos e heatmaps da Q-Table com NetworkX/Matplotlib)
+│       └── app/                          # Aplicações complementares (ex: dashboard Streamlit)
+│           └── dashboard.py              # Interface Streamlit para visualização interativa de rotas
+├── tests/                                # Testes unitários e de integração (pytest)
+│   ├── conftest.py                       # Fixtures compartilhadas (client FastAPI, optimizer isolado, sample requests)
+│   ├── test_api.py                       # Testes de endpoints (rotas, health, visualizações)
+│   └── test_optimizer.py                 # Testes do Q-Learning (rotas válidas/inválidas, treinamento)
+├── .github/                              # Configurações de CI/CD
+│   └── workflows/
+│       ├── ci.yml                        # Pipeline de testes, lint (Ruff), tipagem (Mypy) e formatação
+│       └── main.yml                      # Workflow principal para deploy e validação
+├── docs/                                 # Documentação (opcional, para expansão)
+│   └── api.md                            # Especificação da API (endpoints, exemplos de uso)
+├── Dockerfile                            # Containerização para deploy (base Python 3.12, uv para dependências)
+├── docker-compose.yml                    # Orquestração local (API + Dashboard)
+├── render.yaml                           # Configuração de deploy no Render (serviço web com GitHub integration)
+├── pyproject.toml                        # Gerenciamento de dependências (uv), Ruff, Mypy e metadados do projeto
+├── .pre-commit-config.yaml               # Hooks para lint e formatação automática (Ruff, Mypy)
+├── .dockerignore                         # Ignora arquivos desnecessários no build Docker
+├── run.py                                # Script de execução local (uvicorn para API)
+├── .env.example                          # Template de variáveis de ambiente (API_URL, MODEL_PATH)
+├── .gitignore                            # Ignora .venv, __pycache__, .pytest_cache
+└── README.md                             # Este arquivo: visão geral, instalação e uso
 ```
 
 ## Como Executar
@@ -108,6 +125,18 @@ ruff check src/
 ## 🧠 O Algoritmo: Q-Learning
 
 O motor de decisão utiliza uma Matriz de Recompensas para aprender a topologia do armazém. Através de episódios de treinamento, a IA preenche uma Q-Table que mapeia a melhor ação para cada estado possível. Diferente de algoritmos estáticos, o Q-Learning permite que o sistema se adapte a mudanças dinâmicas no layout do armazém sem necessidade de reprogramação.
+
+$$
+Q(s, a) \leftarrow Q(s, a) + \alpha \left[ r + \gamma \max_{a'} Q(s', a') - Q(s, a) \right]
+$$
+
+**Explicação dos Termos**:
+* **( Q(s, a) )**: Valor Q atual para o estado ( s ) e ação ( a ).
+* **( \alpha )**: Taxa de aprendizado (learning rate, entre 0 e 1).
+* **( r )**: Recompensa imediata recebida após executar a ação ( a ) no estado ( s ).
+* **( \gamma )**: Fator de desconto (discount factor, entre 0 e 1), que pondera recompensas futuras.
+* **( s' )**: Próximo estado após a ação ( a ).
+* **( \max_{a'} Q(s', a') )**: O melhor valor Q possível no próximo estado ( s' ), considerando todas as ações possíveis ( a' ).
 
 ---
 ## 👨‍💻 Autor
