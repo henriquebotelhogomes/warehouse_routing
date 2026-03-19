@@ -46,3 +46,10 @@ target-version = "py312"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B"] # Erros, Pyflakes, Isort (imports), Bugbear
+
+[tool.pytest.ini_options]
+# Adiciona a pasta src ao path de execução dos testes
+pythonpath = ["src"]
+testpaths = ["tests"]
+# Configurações extras para facilitar o debug
+addopts = "-ra -q --cov=src --cov-report=term-missing"

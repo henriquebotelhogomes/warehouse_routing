@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-import os
 import sys
 import time
 from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import TYPE_CHECKING, AsyncGenerator
 
 from asgi_correlation_id import CorrelationIdMiddleware, correlation_id
@@ -12,6 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
 from loguru import logger
 
+# ✅ Importação condicional para evitar ImportError em runtime (Docker/Produção)
 if TYPE_CHECKING:
     from loguru import Record
 
@@ -43,8 +44,6 @@ logger.configure(patcher=inject_correlation_id)
 # =============================================================================
 # INICIALIZAÇÃO DOS COMPONENTES CORE
 # =============================================================================
-
-# ✅ Corrigido: Passando gamma e alpha conforme definido no seu q_learning.py
 optimizer = WarehouseRouteOptimizer(
     locations=LOCATIONS,
     rewards_matrix=BASE_REWARDS_MATRIX,
@@ -52,7 +51,6 @@ optimizer = WarehouseRouteOptimizer(
     alpha=settings.alpha,
 )
 
-# ✅ Corrigido: WarehouseVisualizer não recebe argumentos no __init__
 visualizer = WarehouseVisualizer()
 
 
@@ -61,21 +59,29 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Gerencia o startup e shutdown da API de forma resiliente."""
     logger.info("🚀 Iniciando API Warehouse Optimizer...")
 
-    os.makedirs(os.path.dirname(settings.model_save_path), exist_ok=True)
+    # ✅ Uso de Pathlib para evitar WinError 3 no Windows
+    model_path = Path(settings.model_save_path)
+    if model_path.parent != Path("."):
+        model_path.parent.mkdir(parents=True, exist_ok=True)
 
-    if os.path.exists(settings.model_save_path):
+    # Tenta carregar o modelo persistido (Cold Start Resilience)
+    if model_path.exists():
         try:
-            optimizer.load_model(settings.model_save_path)
-            logger.info(f"📂 Modelo carregado de: {settings.model_save_path}")
+            optimizer.load_model(str(model_path))
+            logger.info(f"📂 Modelo de IA carregado com sucesso de: {model_path}")
         except Exception as e:
-            logger.error(f"❌ Erro ao carregar modelo: {e}")
+            logger.error(f"❌ Falha ao carregar modelo existente: {e}")
     else:
-        logger.warning(f"⚠️ Modelo não encontrado em {settings.model_save_path}")
+        logger.warning(f"⚠️ Modelo não encontrado em {model_path}. Iniciando do zero.")
 
     yield
 
-    optimizer.save_model(settings.model_save_path)
-    logger.info("💾 Estado da IA persistido com sucesso.")
+    # Persiste o conhecimento acumulado ao desligar
+    try:
+        optimizer.save_model(str(model_path))
+        logger.info("💾 Estado da Q-Table persistido com sucesso antes do shutdown.")
+    except Exception as e:
+        logger.error(f"❌ Erro ao salvar modelo no shutdown: {e}")
 
 
 # =============================================================================
@@ -88,11 +94,13 @@ app = FastAPI(
 )
 
 app.add_middleware(CorrelationIdMiddleware)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["X-Correlation-ID"],
 )
 
 
@@ -117,7 +125,6 @@ async def calculate_route(request: RouteRequest):
     logger.info(f"Calculando rota: {request.start} -> {request.end}")
 
     try:
-        # ✅ Corrigido: Lógica para decidir entre rota simples ou com intermediário
         if request.intermediary:
             route = optimizer.get_route_with_intermediary(
                 request.start, request.intermediary, request.end
@@ -134,7 +141,6 @@ async def calculate_route(request: RouteRequest):
 @app.get("/api/v1/visualize/graph")
 async def get_graph():
     """Retorna a imagem da topologia do armazém."""
-    # ✅ Corrigido: Nome do método é get_graph_image
     img_bytes = visualizer.get_graph_image(BASE_REWARDS_MATRIX, LOCATIONS)
     return StreamingResponse(img_bytes, media_type="image/png")
 
@@ -143,7 +149,6 @@ async def get_graph():
 async def get_q_table_heatmap(target: str):
     """Gera um heatmap da Q-Table para um destino específico."""
     try:
-        # ✅ Corrigido: Treina/Recupera a Q-Table para o destino e gera a imagem
         q_table = optimizer.train(target)
         img_bytes = visualizer.get_q_table_image(
             q_table, LOCATIONS, f"Q-Table para Destino: {target}"
@@ -156,7 +161,6 @@ async def get_q_table_heatmap(target: str):
 @app.patch("/api/v1/warehouse/path")
 async def update_path(request: PathUpdateRequest):
     """Permite bloquear ou liberar corredores dinamicamente."""
-    # ✅ Corrigido: Nomes dos campos conforme seu PathUpdateRequest no schemas.py
     optimizer.update_path(request.location_a, request.location_b, request.is_open)
     logger.info(f"Caminho {request.location_a}-{request.location_b} atualizado.")
     return {"message": "Topologia atualizada com sucesso."}
