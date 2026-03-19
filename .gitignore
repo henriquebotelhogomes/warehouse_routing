@@ -19,3 +19,4 @@ __pycache__/
 # Modelos salvos e variáveis de ambiente
 *.joblib
 .env
+.coverage
