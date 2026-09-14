@@ -1,3 +1,4 @@
+import re
 from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
@@ -267,4 +268,373 @@ def tool_scale_fleet(
         current_count=res["current_count"],
         affected_amrs=res["added_amrs"] or res["removed_amrs"],
         message=f"Capacidade da frota ajustada para {res['current_count']} robôs.",
+    )
+
+
+# --- Novas Ferramentas Expandidas ---
+
+
+class GetAMRLogsInput(BaseModel):
+    amr_id: Optional[str] = Field(
+        default=None,
+        description="ID do robô específico (ex: 'AMR-03'). Se omitido, retorna logs de toda a frota.",
+    )
+    limit: int = Field(default=8, description="Número máximo de eventos a retornar")
+
+
+class AMRLogItem(BaseModel):
+    timestamp: str
+    tick: int
+    level: str
+    message: str
+    amr_id: str
+
+
+class GetAMRLogsOutput(BaseModel):
+    success: bool
+    amr_id: Optional[str]
+    logs: List[AMRLogItem]
+    message: str
+
+
+def tool_get_amr_logs(amr_id: Optional[str] = None, limit: int = 8) -> GetAMRLogsOutput:
+    """Consulta os logs recentes e eventos da máquina de estados (FSM) de um robô ou de toda a frota."""
+    if _orchestrator_ref is None:
+        return GetAMRLogsOutput(
+            success=False, amr_id=amr_id, logs=[], message="Orquestrador não inicializado."
+        )
+
+    orch = _orchestrator_ref
+    logs_list: List[AMRLogItem] = []
+
+    if amr_id:
+        # Normaliza ID (ex: "amr-3" -> "AMR-03")
+        target_id = amr_id.upper().strip()
+        if not target_id.startswith("AMR-"):
+            # Se for só número (ex: "3")
+            num = re.sub(r"\D", "", target_id)
+            if num:
+                target_id = f"AMR-{int(num):02d}"
+
+        # Procura amr
+        found_amr = None
+        for a_id, a_obj in orch.amrs.items():
+            if a_id == target_id or a_id.endswith(
+                f"-{int(num):02d}" if "num" in locals() and num else "XYZ"
+            ):
+                found_amr = a_obj
+                target_id = a_id
+                break
+
+        if not found_amr:
+            return GetAMRLogsOutput(
+                success=False,
+                amr_id=target_id,
+                logs=[],
+                message=f"Robô '{target_id}' não encontrado na frota ativa ({', '.join(orch.amrs.keys())}).",
+            )
+
+        for log_entry in found_amr.logs[-limit:]:
+            logs_list.append(
+                AMRLogItem(
+                    timestamp=log_entry.timestamp,
+                    tick=log_entry.tick,
+                    level=log_entry.level,
+                    message=log_entry.message,
+                    amr_id=target_id,
+                )
+            )
+        logs_list.reverse()
+        return GetAMRLogsOutput(
+            success=True,
+            amr_id=target_id,
+            logs=logs_list,
+            message=f"Recuperados {len(logs_list)} eventos recentes do {target_id}.",
+        )
+
+    # Todos os robôs
+    for a_id, a_obj in orch.amrs.items():
+        for log_entry in a_obj.logs[-5:]:
+            logs_list.append(
+                AMRLogItem(
+                    timestamp=log_entry.timestamp,
+                    tick=log_entry.tick,
+                    level=log_entry.level,
+                    message=log_entry.message,
+                    amr_id=a_id,
+                )
+            )
+
+    logs_list.sort(key=lambda x: x.tick, reverse=True)
+    logs_list = logs_list[:limit]
+    return GetAMRLogsOutput(
+        success=True,
+        amr_id=None,
+        logs=logs_list,
+        message=f"Recuperados {len(logs_list)} eventos recentes da frota.",
+    )
+
+
+class RescueAMRInput(BaseModel):
+    amr_id: str = Field(description="ID do robô a destravar/resgatar (ex: 'AMR-03')")
+
+
+class RescueAMROutput(BaseModel):
+    success: bool
+    amr_id: str
+    action: str
+    message: str
+
+
+def tool_rescue_amr(amr_id: str) -> RescueAMROutput:
+    """Aciona o protocolo de Self-Healing para destravar um robô congelado ou com falha de rota."""
+    if _orchestrator_ref is None:
+        return RescueAMROutput(
+            success=False, amr_id=amr_id, action="error", message="Orquestrador não inicializado."
+        )
+
+    orch = _orchestrator_ref
+    target_id = amr_id.upper().strip()
+    num = re.sub(r"\D", "", target_id)
+    if num:
+        target_id = f"AMR-{int(num):02d}"
+
+    res = orch.rescue_amr(target_id)
+    return RescueAMROutput(
+        success=res.get("success", False),
+        amr_id=target_id,
+        action=res.get("action", "unknown"),
+        message=res.get("message", "Operação concluída."),
+    )
+
+
+class GetAMRDetailInput(BaseModel):
+    amr_id: str = Field(description="ID do robô a consultar (ex: 'AMR-02')")
+
+
+class GetAMRDetailOutput(BaseModel):
+    success: bool
+    amr_id: str
+    position: Optional[Dict[str, int]]
+    state: str
+    battery_level: float
+    carrying_pod_id: Optional[str]
+    current_mission_id: Optional[str]
+    target: Optional[Dict[str, int]]
+    path_length_remaining: int
+    message: str
+
+
+def tool_get_amr_detail(amr_id: str) -> GetAMRDetailOutput:
+    """Consulta detalhes precisos de localização, carga, missão e bateria de um robô específico."""
+    if _orchestrator_ref is None:
+        return GetAMRDetailOutput(
+            success=False,
+            amr_id=amr_id,
+            position=None,
+            state="UNKNOWN",
+            battery_level=0.0,
+            carrying_pod_id=None,
+            current_mission_id=None,
+            target=None,
+            path_length_remaining=0,
+            message="Orquestrador não inicializado.",
+        )
+
+    orch = _orchestrator_ref
+    target_id = amr_id.upper().strip()
+    num = re.sub(r"\D", "", target_id)
+    if num:
+        target_id = f"AMR-{int(num):02d}"
+
+    if target_id not in orch.amrs:
+        return GetAMRDetailOutput(
+            success=False,
+            amr_id=target_id,
+            position=None,
+            state="NOT_FOUND",
+            battery_level=0.0,
+            carrying_pod_id=None,
+            current_mission_id=None,
+            target=None,
+            path_length_remaining=0,
+            message=f"Robô '{target_id}' não encontrado na frota ativa.",
+        )
+
+    amr = orch.amrs[target_id]
+    target_dict = (
+        {"x": amr.target_picking_station[0], "y": amr.target_picking_station[1]}
+        if amr.target_picking_station
+        else (
+            {"x": amr.target_charging_station[0], "y": amr.target_charging_station[1]}
+            if amr.target_charging_station
+            else None
+        )
+    )
+
+    return GetAMRDetailOutput(
+        success=True,
+        amr_id=target_id,
+        position={"x": amr.grid_x, "y": amr.grid_y},
+        state=amr.state.value,
+        battery_level=round(amr.battery_level, 1),
+        carrying_pod_id=amr.carrying_pod_id,
+        current_mission_id=amr.current_mission_id,
+        target=target_dict,
+        path_length_remaining=len(amr.path) - amr.path_step_idx if amr.path else 0,
+        message=f"Robô {target_id} em ({amr.grid_x}, {amr.grid_y}) no estado {amr.state.value}.",
+    )
+
+
+class SimulationControlInput(BaseModel):
+    action: str = Field(description="'pause', 'resume', 'toggle' ou 'set_speed'")
+    speed: Optional[float] = Field(
+        default=None, description="Multiplicador de velocidade (0.5 a 3.0)"
+    )
+
+
+class SimulationControlOutput(BaseModel):
+    success: bool
+    is_paused: bool
+    speed: float
+    message: str
+
+
+def tool_simulation_control(
+    action: str = "toggle", speed: Optional[float] = None
+) -> SimulationControlOutput:
+    """Controla o loop físico da simulação (pausar, retomar ou alterar velocidade)."""
+    if _orchestrator_ref is None:
+        return SimulationControlOutput(
+            success=False, is_paused=False, speed=1.0, message="Orquestrador não inicializado."
+        )
+
+    orch = _orchestrator_ref
+    act = action.lower().strip()
+
+    if act in ("pause", "pausar", "congelar"):
+        orch.is_paused = True
+        msg = "Simulação pausada com sucesso. Todos os robôs mantiveram suas posições."
+    elif act in ("resume", "play", "iniciar", "retomar", "despausar"):
+        orch.is_paused = False
+        msg = "Simulação retomada. AMRs continuam navegando normalmente."
+    elif act in ("toggle", "alternar"):
+        orch.is_paused = not orch.is_paused
+        msg = f"Simulação {'pausada' if orch.is_paused else 'retomada'}."
+    elif act in ("speed", "set_speed", "velocidade") and speed is not None:
+        orch.simulation_speed = max(0.2, min(5.0, speed))
+        msg = f"Velocidade da simulação ajustada para {orch.simulation_speed}x."
+    else:
+        msg = "Ação de simulação não reconhecida."
+
+    if speed is not None and act not in ("speed", "set_speed", "velocidade"):
+        orch.simulation_speed = max(0.2, min(5.0, speed))
+
+    return SimulationControlOutput(
+        success=True,
+        is_paused=orch.is_paused,
+        speed=orch.simulation_speed,
+        message=msg,
+    )
+
+
+class WarehouseMetricsOutput(BaseModel):
+    success: bool
+    throughput_per_hour: float
+    completed_orders: int
+    pending_orders: int
+    fleet_utilization_pct: float
+    average_battery_pct: float
+    active_incidents: int
+    grid_size: str
+    fleet_size: int
+    message: str
+
+
+def tool_get_warehouse_metrics() -> WarehouseMetricsOutput:
+    """Consulta indicadores-chave de desempenho (KPIs) operacionais e de intralogística do galpão."""
+    if _orchestrator_ref is None:
+        return WarehouseMetricsOutput(
+            success=False,
+            throughput_per_hour=0.0,
+            completed_orders=0,
+            pending_orders=0,
+            fleet_utilization_pct=0.0,
+            average_battery_pct=0.0,
+            active_incidents=0,
+            grid_size="0x0",
+            fleet_size=0,
+            message="Orquestrador não inicializado.",
+        )
+
+    orch = _orchestrator_ref
+    telemetries = [amr.get_telemetry() for amr in orch.amrs.values()]
+    avg_bat = sum(t.battery_level for t in telemetries) / len(telemetries) if telemetries else 0.0
+    active_in_transit = sum(1 for t in telemetries if t.state.value not in ("IDLE", "CHARGING"))
+    utilization = (active_in_transit / len(telemetries) * 100.0) if telemetries else 0.0
+
+    return WarehouseMetricsOutput(
+        success=True,
+        throughput_per_hour=round(orch.get_throughput_per_hour(), 1),
+        completed_orders=len(orch.completed_orders),
+        pending_orders=len(orch.orders),
+        fleet_utilization_pct=round(utilization, 1),
+        average_battery_pct=round(avg_bat, 1),
+        active_incidents=len(orch.grid.dynamic_blocks),
+        grid_size=f"{orch.grid.width}x{orch.grid.height}",
+        fleet_size=len(orch.amrs),
+        message="Métricas do armazém calculadas em tempo real.",
+    )
+
+
+class TriggerChaosOutput(BaseModel):
+    success: bool
+    incident_type: str
+    affected_amrs: List[str]
+    rca_summary: str
+    message: str
+
+
+def tool_trigger_chaos(incident_type: Optional[str] = None) -> TriggerChaosOutput:
+    """Injeta um incidente de teste controlado de Chaos Engineering para testar resiliência."""
+    if _orchestrator_ref is None:
+        return TriggerChaosOutput(
+            success=False,
+            incident_type="none",
+            affected_amrs=[],
+            rca_summary="",
+            message="Orquestrador não inicializado.",
+        )
+
+    orch = _orchestrator_ref
+    chaos = orch.chaos_engine
+
+    t = (incident_type or "random").lower().strip()
+    report = None
+
+    if "slip" in t or "derrapagem" in t:
+        report = chaos.trigger_wheel_slip()
+    elif "wifi" in t or "rede" in t:
+        report = chaos.trigger_wifi_packet_drop()
+    elif "lidar" in t or "ponto cego" in t:
+        report = chaos.trigger_lidar_blind_spot()
+    else:
+        report = chaos.trigger_random_incident()
+
+    if not report:
+        return TriggerChaosOutput(
+            success=False,
+            incident_type=t,
+            affected_amrs=[],
+            rca_summary="",
+            message="Nenhum robô elegível em movimento no momento para injeção de incidente.",
+        )
+
+    return TriggerChaosOutput(
+        success=True,
+        incident_type=report.fault_type,
+        affected_amrs=[report.primary_amr_id]
+        + ([report.secondary_amr_id] if report.secondary_amr_id else []),
+        rca_summary=report.capa_action,
+        message=f"Incidente de teste ({report.fault_type}) injetado com sucesso no {report.primary_amr_id}. Protocolo de isolamento ativado.",
     )

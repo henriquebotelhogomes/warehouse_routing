@@ -69,6 +69,8 @@ export const en = {
   copilot_quick_prompt_1: "Block cell (10, 8) due to oil spill",
   copilot_quick_prompt_2: "Check fleet status & batteries",
   copilot_quick_prompt_3: "Emergency stop all robots",
+  copilot_quick_prompt_4: "AMR-03 Logs",
+  copilot_quick_prompt_5: "Rescue AMR-01",
   copilot_hitl_title: "Action Confirmation (Human-in-the-Loop)",
   copilot_hitl_confirm: "Confirm Physical Action",
   copilot_hitl_cancel: "Cancel",

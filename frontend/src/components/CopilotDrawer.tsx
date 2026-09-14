@@ -204,6 +204,18 @@ export const CopilotDrawer: React.FC = () => {
                 {t("copilot_quick_prompt_2")}
               </button>
               <button
+                onClick={() => handleSend(t("copilot_quick_prompt_4"))}
+                className="text-[10px] px-2 py-1 rounded bg-cyan-950/40 hover:bg-cyan-900/60 text-cyan-300 border border-cyan-800/40 transition-all truncate"
+              >
+                {t("copilot_quick_prompt_4")}
+              </button>
+              <button
+                onClick={() => handleSend(t("copilot_quick_prompt_5"))}
+                className="text-[10px] px-2 py-1 rounded bg-amber-950/40 hover:bg-amber-900/60 text-amber-300 border border-amber-800/40 transition-all truncate"
+              >
+                {t("copilot_quick_prompt_5")}
+              </button>
+              <button
                 onClick={() => handleSend(t("copilot_quick_prompt_3"))}
                 className="text-[10px] px-2 py-1 rounded bg-red-950/40 hover:bg-red-900/60 text-red-300 border border-red-800/40 transition-all truncate"
               >

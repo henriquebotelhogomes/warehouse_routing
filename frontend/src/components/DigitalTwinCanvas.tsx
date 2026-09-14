@@ -40,9 +40,10 @@ export const DigitalTwinCanvas: React.FC = () => {
   const { language } = useTranslation();
   const [isChaosMenuOpen, setIsChaosMenuOpen] = useState(false);
 
-  // Painel lateral de robôs (aberto por padrão para guiar o usuário)
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [showTutorialBanner, setShowTutorialBanner] = useState(true);
+  const [showTutorialBanner, setShowTutorialBanner] = useState(() => {
+    return localStorage.getItem("nexusfleet_tutorial_closed") !== "true";
+  });
 
   // Estado de Câmera (Pan & Zoom) e Robô Seguido
   const [zoom, setZoom] = useState(0.85);
@@ -770,41 +771,73 @@ export const DigitalTwinCanvas: React.FC = () => {
         onStopFollow={() => setFollowedAmrId(null)}
       />
 
-      {/* Indicador Flutuante de Robô Seguido */}
-      {followedAmrId && (
-        <div className="absolute top-16 left-1/2 -translate-x-1/2 z-20 bg-slate-900/95 border border-cyan-500/60 backdrop-blur-md px-3.5 py-1.5 rounded-full text-xs font-medium text-cyan-300 shadow-xl flex items-center gap-2.5 animate-in fade-in duration-200">
-          <span className="w-2 h-2 rounded-full bg-cyan-400 animate-ping" />
-          <span>
-            {language === "pt"
-              ? `Câmera acompanhando ${followedAmrId}`
-              : `Camera tracking ${followedAmrId}`}
-          </span>
-          <button
-            onClick={() => setFollowedAmrId(null)}
-            className="ml-1 px-2 py-0.5 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-[11px] font-semibold border border-slate-700 transition-all"
-          >
-            {language === "pt" ? "Soltar Câmera" : "Release"}
-          </button>
-        </div>
-      )}
-
-      {/* Banner Tutorial no Topo para Fácil Compreensão */}
+      {/* Banner Tutorial no Topo Direito (Sem sobreposição com os controles) */}
       {showTutorialBanner && (
-        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 bg-slate-900/90 backdrop-blur-md px-4 py-2 rounded-xl border border-cyan-500/40 text-xs text-slate-300 flex items-center gap-3 shadow-2xl animate-in fade-in duration-300">
+        <div className="absolute top-4 right-6 z-20 max-w-sm bg-slate-900/95 backdrop-blur-md px-3.5 py-2 rounded-xl border border-cyan-500/40 text-xs text-slate-300 flex items-center gap-2.5 shadow-2xl animate-in fade-in duration-300">
           <HelpCircle className="w-4 h-4 text-cyan-400 flex-shrink-0" />
-          <span>
+          <span className="text-[11px] leading-snug">
             {language === "pt"
-              ? "👋 Os robôs pegam prateleiras, levam até as bancadas de separação (amarelas) e devolvem ao estoque. Clique em 'Seguir' na barra lateral para acompanhar qualquer robô!"
-              : "👋 Robots pick storage pods, take them to picking bays (yellow), and return them to storage. Click 'Follow' in the sidebar to track any AMR!"}
+              ? "👋 Os robôs pegam prateleiras e levam às bancadas de picking. Clique em 'Seguir' na barra lateral para acompanhar qualquer AMR!"
+              : "👋 Robots carry pods to picking bays. Click 'Follow' in the sidebar to track any robot!"}
           </span>
           <button
-            onClick={() => setShowTutorialBanner(false)}
-            className="text-slate-400 hover:text-white font-bold ml-2"
+            onClick={() => {
+              setShowTutorialBanner(false);
+              localStorage.setItem("nexusfleet_tutorial_closed", "true");
+            }}
+            className="text-slate-400 hover:text-white font-bold ml-1.5 p-1 hover:bg-slate-800 rounded transition-colors"
+            title="Fechar dica"
           >
             ✕
           </button>
         </div>
       )}
+
+      {/* Container de Alertas e Status Centralizados (Stack Vertical sem Sobreposição) */}
+      <div className="absolute top-16 left-1/2 -translate-x-1/2 z-30 flex flex-col items-center gap-2 pointer-events-none">
+        {/* Indicador Flutuante de Robô Seguido */}
+        {followedAmrId && (
+          <div className="pointer-events-auto bg-slate-900/95 border border-cyan-500/60 backdrop-blur-md px-3.5 py-1.5 rounded-full text-xs font-medium text-cyan-300 shadow-xl flex items-center gap-2.5 animate-in fade-in duration-200">
+            <span className="w-2 h-2 rounded-full bg-cyan-400 animate-ping" />
+            <span>
+              {language === "pt"
+                ? `Câmera acompanhando ${followedAmrId}`
+                : `Camera tracking ${followedAmrId}`}
+            </span>
+            <button
+              onClick={() => setFollowedAmrId(null)}
+              className="ml-1 px-2 py-0.5 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-[11px] font-semibold border border-slate-700 transition-all"
+            >
+              {language === "pt" ? "Soltar Câmera" : "Release"}
+            </button>
+          </div>
+        )}
+
+        {/* Banner Flutuante de Incidente de Colisão Ativo (Chaos) */}
+        {activeIncident && !activeIncident.is_resolved && (
+          <div className="pointer-events-auto bg-slate-900/95 border border-red-500/70 backdrop-blur-xl px-4 py-2 rounded-2xl shadow-2xl shadow-red-950/50 flex items-center gap-3 animate-in fade-in slide-in-from-top-3 border-t-red-400">
+            <div className="flex items-center gap-2.5">
+              <span className="relative flex h-3 w-3">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
+              </span>
+              <span className="text-xs font-bold text-red-200">
+                {language === "pt"
+                  ? `🚨 Colisão Detectada: ${activeIncident.involved_amrs.join(" e ")} em (${activeIncident.location.x}, ${activeIncident.location.y})`
+                  : `🚨 Collision Detected: ${activeIncident.involved_amrs.join(" & ")} at (${activeIncident.location.x}, ${activeIncident.location.y})`}
+              </span>
+            </div>
+
+            <button
+              onClick={() => setIsWarRoomOpen(true)}
+              className="flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold bg-gradient-to-r from-red-600 to-amber-600 hover:from-red-500 hover:to-amber-500 text-white shadow-md transition-all active:scale-95"
+            >
+              <span>🔍</span>
+              <span>{language === "pt" ? "Ver Investigação (RCA)" : "Open RCA War Room"}</span>
+            </button>
+          </div>
+        )}
+      </div>
 
       {/* Barra de Controles Flutuante no Topo */}
       <div
@@ -1127,31 +1160,6 @@ export const DigitalTwinCanvas: React.FC = () => {
           </div>
         );
       })()}
-
-      {/* Banner Flutuante de Incidente de Colisão Ativo (Chaos) */}
-      {activeIncident && !activeIncident.is_resolved && (
-        <div className="absolute top-16 left-1/2 -translate-x-1/2 z-40 bg-slate-900/95 border border-red-500/70 backdrop-blur-xl px-4 py-2.5 rounded-2xl shadow-2xl shadow-red-950/50 flex items-center gap-3 animate-in fade-in slide-in-from-top-3 border-t-red-400">
-          <div className="flex items-center gap-2.5">
-            <span className="relative flex h-3 w-3">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
-            </span>
-            <span className="text-xs font-bold text-red-200">
-              {language === "pt"
-                ? `🚨 Colisão Detectada: ${activeIncident.involved_amrs.join(" e ")} em (${activeIncident.location.x}, ${activeIncident.location.y})`
-                : `🚨 Collision Detected: ${activeIncident.involved_amrs.join(" & ")} at (${activeIncident.location.x}, ${activeIncident.location.y})`}
-            </span>
-          </div>
-
-          <button
-            onClick={() => setIsWarRoomOpen(true)}
-            className="flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold bg-gradient-to-r from-red-600 to-amber-600 hover:from-red-500 hover:to-amber-500 text-white shadow-md transition-all active:scale-95"
-          >
-            <span>🔍</span>
-            <span>{language === "pt" ? "Ver Investigação (RCA)" : "Open RCA War Room"}</span>
-          </button>
-        </div>
-      )}
 
       {/* Modal da War Room de Investigação Forense de Incidente */}
       {isWarRoomOpen && activeIncident && (

@@ -69,6 +69,8 @@ export const pt = {
   copilot_quick_prompt_1: "Bloquear célula (10, 8) por óleo",
   copilot_quick_prompt_2: "Status da frota e baterias",
   copilot_quick_prompt_3: "Parada de emergência geral",
+  copilot_quick_prompt_4: "Logs do AMR-03",
+  copilot_quick_prompt_5: "Destravar AMR-01",
   copilot_hitl_title: "Confirmação Obrigatória (Human-in-the-Loop)",
   copilot_hitl_confirm: "Confirmar Ação Física",
   copilot_hitl_cancel: "Cancelar",

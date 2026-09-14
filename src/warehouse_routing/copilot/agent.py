@@ -9,8 +9,14 @@ from warehouse_routing.copilot.guardrails import hitl_manager
 from warehouse_routing.copilot.langfuse_tracer import CopilotTraceSession
 from warehouse_routing.copilot.tools import (
     tool_block_zone,
+    tool_get_amr_detail,
+    tool_get_amr_logs,
     tool_get_fleet_telemetry,
+    tool_get_warehouse_metrics,
+    tool_rescue_amr,
     tool_scale_fleet,
+    tool_simulation_control,
+    tool_trigger_chaos,
     tool_unblock_zone,
 )
 
@@ -37,10 +43,19 @@ class CopilotResponse(BaseModel):
     executed_tools: List[Dict[str, Any]] = []
 
 
+def _extract_amr_id(text: str) -> Optional[str]:
+    """Extrai IDs de robôs como 'AMR-03', 'amr-3', 'robô 3', 'robo 02'."""
+    m = re.search(r"\b(?:amr|rob[oô])[-_\s]*(\d+)\b", text, re.IGNORECASE)
+    if m:
+        num = int(m.group(1))
+        return f"AMR-{num:02d}"
+    return None
+
+
 class WarehouseCopilotAgent:
     """
     Agente de IA do Copiloto Operacional.
-    Suporta Google GenAI (Gemini 3.8 Flash) e Fallback Determinístico Local.
+    Suporta Google GenAI (Gemini 3.8 Flash) e Motor NLU Determinístico Avançado.
     """
 
     def __init__(self) -> None:
@@ -70,10 +85,12 @@ class WarehouseCopilotAgent:
             w in query_lower
             for w in [
                 "parada de emergência",
+                "parada de emergencia",
                 "emergency stop",
                 "parar frota",
                 "parar tudo",
                 "congelar frota",
+                "travar frota",
             ]
         ):
             action = hitl_manager.create_action(
@@ -102,8 +119,317 @@ class WarehouseCopilotAgent:
                 executed_tools=executed_tools,
             )
 
-        # 2. Tool: Bloqueio de Célula / Corredor
-        # Regex para detectar coordenadas tipo (x, y) ou "x e y" ou "x, y"
+        # 2. Desativação da Parada de Emergência
+        if any(
+            w in query_lower
+            for w in [
+                "desativar emergência",
+                "desativar emergencia",
+                "cancelar emergência",
+                "liberar emergência",
+                "retomar emergência",
+                "despausar emergência",
+            ]
+        ):
+            action = hitl_manager.create_action(
+                action_type="EMERGENCY_STOP",
+                parameters={"activate": False},
+                description="Desativação da Parada de Emergência da Frota",
+                warning_message="Esta ação reativará a movimentação de todos os robôs AMRs do armazém.",
+            )
+            reply = (
+                "🛡️ **Liberação de Emergência Solicitada**\n\n"
+                "Confirme no cartão abaixo para restabelecer a operação normal dos robôs:"
+            )
+            return CopilotResponse(
+                reply=reply,
+                hitl_action_required=True,
+                hitl_card={
+                    "token": action.action_token,
+                    "title": "🛡️ Retomar Operação Normal",
+                    "description": action.warning_message,
+                    "confirm_text": "Confirmar Retomada",
+                    "cancel_text": "Cancelar",
+                },
+                executed_tools=executed_tools,
+            )
+
+        # 3. Tool: Consulta de Logs / Eventos de Robôs (inclui tolerância a typos: "logos", "log", "historico", "eventos")
+        if any(
+            w in query_lower
+            for w in [
+                "log",
+                "logs",
+                "logo",
+                "logos",
+                "histórico",
+                "historico",
+                "eventos",
+                "auditoria",
+                "o que aconteceu",
+            ]
+        ):
+            target_amr = _extract_amr_id(query_lower)
+            out_logs = tool_get_amr_logs(amr_id=target_amr, limit=8)
+            executed_tools.append({"tool": "get_amr_logs", "output": out_logs.model_dump()})
+            tracer.log_tool_call(
+                "get_amr_logs", {"amr_id": target_amr, "limit": 8}, out_logs.model_dump()
+            )
+
+            if not out_logs.logs:
+                reply = f"📜 **Logs da Frota**\n\nNenhum evento recente registrado para `{target_amr or 'a frota'}`."
+            else:
+                title = (
+                    f"📜 **Histórico Recente de Eventos — {target_amr}**"
+                    if target_amr
+                    else "📜 **Últimos Eventos Globais da Frota**"
+                )
+                items_text = []
+                for item in out_logs.logs:
+                    badge = (
+                        "🔴 [ERRO]"
+                        if item.level == "ERROR"
+                        else (
+                            "🟡 [AVISO]"
+                            if item.level == "WARN"
+                            else "🟢 [SUCESSO]"
+                            if item.level == "SUCCESS"
+                            else "🔵 [AÇÃO]"
+                            if item.level == "ACTION"
+                            else "⚪ [INFO]"
+                        )
+                    )
+                    prefix = f"`{item.amr_id}` " if not target_amr else ""
+                    items_text.append(
+                        f"• `{item.timestamp}` (Tick {item.tick}) {badge} {prefix}{item.message}"
+                    )
+
+                reply = f"{title}\n\n" + "\n".join(items_text)
+                if target_amr:
+                    reply += f"\n\n*Dica: Você também pode abrir a **Central de Logs** no topo ou clicar no robô {target_amr} no mapa.*"
+
+            tracer.end_trace(reply)
+            return CopilotResponse(reply=reply, executed_tools=executed_tools)
+
+        # 4. Tool: Destravar Robô / Self-Healing (Rescue)
+        if any(
+            w in query_lower
+            for w in [
+                "destravar",
+                "destrave",
+                "resgatar",
+                "resgate",
+                "rescue",
+                "descongelar",
+                "desbloquear robo",
+                "desbloquear robô",
+                "recuperar",
+                "soltar robô",
+                "soltar robo",
+            ]
+        ):
+            target_amr = _extract_amr_id(query_lower)
+            if target_amr:
+                out_rescue = tool_rescue_amr(amr_id=target_amr)
+                executed_tools.append({"tool": "rescue_amr", "output": out_rescue.model_dump()})
+                tracer.log_tool_call("rescue_amr", {"amr_id": target_amr}, out_rescue.model_dump())
+
+                if out_rescue.success:
+                    reply = (
+                        f"🩹 **Protocolo de Self-Healing Concluído com Sucesso**\n\n"
+                        f"• **Robô:** `{target_amr}`\n"
+                        f"• **Ação Executada:** `{out_rescue.action}`\n"
+                        f"• **Resultado:** {out_rescue.message}\n\n"
+                        f"As reservas de rota antigas foram liberadas e a FSM do robô restabelecida."
+                    )
+                else:
+                    reply = (
+                        f"⚠️ **Falha ao Resgatar Robô**\n\n"
+                        f"• **Robô:** `{target_amr}`\n"
+                        f"• **Detalhe:** {out_rescue.message}"
+                    )
+                tracer.end_trace(reply)
+                return CopilotResponse(reply=reply, executed_tools=executed_tools)
+
+        # 5. Tool: Localização, Carga e Detalhes de um Robô Específico
+        if any(
+            w in query_lower
+            for w in [
+                "onde está",
+                "onde esta",
+                "posição",
+                "posicao",
+                "localização",
+                "localizacao",
+                "onde fica",
+                "o que está carregando",
+                "qual a carga",
+                "qual a bateria",
+                "qual a missão",
+                "qual a missao",
+                "detalhes do",
+            ]
+        ) and _extract_amr_id(query_lower):
+            target_amr = _extract_amr_id(query_lower)
+            if not target_amr:
+                target_amr = "AMR-01"
+            out_detail = tool_get_amr_detail(amr_id=target_amr)
+            executed_tools.append({"tool": "get_amr_detail", "output": out_detail.model_dump()})
+            tracer.log_tool_call("get_amr_detail", {"amr_id": target_amr}, out_detail.model_dump())
+
+            if out_detail.success and out_detail.position:
+                target_str = (
+                    f"({out_detail.target['x']}, {out_detail.target['y']})"
+                    if out_detail.target
+                    else "Nenhum alvo definido"
+                )
+                reply = (
+                    f"🤖 **Telemetria do Robô {target_amr}**\n\n"
+                    f"• **Coordenadas Atuais:** ({out_detail.position['x']}, {out_detail.position['y']})\n"
+                    f"• **Estado da FSM:** `{out_detail.state}`\n"
+                    f"• **Nível de Bateria:** {out_detail.battery_level}%\n"
+                    f"• **Carga Acoplada:** {out_detail.carrying_pod_id or 'Sem carga'}\n"
+                    f"• **Missão:** {out_detail.current_mission_id or 'Aguardando pedido'}\n"
+                    f"• **Destino Alvo:** {target_str}\n"
+                    f"• **Passos Restantes na Rota:** {out_detail.path_length_remaining}"
+                )
+            else:
+                reply = f"🔍 **Robô Não Localizado:** {out_detail.message}"
+
+            tracer.end_trace(reply)
+            return CopilotResponse(reply=reply, executed_tools=executed_tools)
+
+        # 6. Tool: Controle da Simulação (Pausar, Retomar, Alterar Velocidade)
+        if any(
+            w in query_lower
+            for w in [
+                "pausar simulação",
+                "pausar simulacao",
+                "pause",
+                "iniciar simulação",
+                "iniciar simulacao",
+                "retomar simulação",
+                "despausar",
+                "velocidade 1x",
+                "velocidade 2x",
+                "velocidade 0.5x",
+                "aumentar velocidade",
+                "diminuir velocidade",
+            ]
+        ):
+            speed_match = re.search(r"(\d+(?:\.\d+)?)\s*x", query_lower)
+            spd = float(speed_match.group(1)) if speed_match else None
+
+            action = "toggle"
+            if any(w in query_lower for w in ["pausar", "pause", "congelar"]):
+                action = "pause"
+            elif any(w in query_lower for w in ["iniciar", "retomar", "despausar", "play"]):
+                action = "resume"
+            elif spd:
+                action = "set_speed"
+
+            out_sim = tool_simulation_control(action=action, speed=spd)
+            executed_tools.append({"tool": "simulation_control", "output": out_sim.model_dump()})
+            tracer.log_tool_call(
+                "simulation_control", {"action": action, "speed": spd}, out_sim.model_dump()
+            )
+
+            reply = (
+                f"⏱️ **Controle de Simulação Atualizado**\n\n"
+                f"• **Status:** {'⏸️ Pausada' if out_sim.is_paused else '▶️ Em Execução'}\n"
+                f"• **Velocidade:** {out_sim.speed}x\n"
+                f"• **Mensagem:** {out_sim.message}"
+            )
+            tracer.end_trace(reply)
+            return CopilotResponse(reply=reply, executed_tools=executed_tools)
+
+        # 7. Tool: Indicadores de Negócio / Métricas & Throughput
+        if any(
+            w in query_lower
+            for w in [
+                "throughput",
+                "vazão",
+                "vazao",
+                "quantos pedidos",
+                "ordens separadas",
+                "pedidos entregues",
+                "métricas",
+                "metricas",
+                "kpi",
+                "kpis",
+                "utilização",
+                "utilizacao",
+                "desempenho",
+                "performance",
+                "analytics",
+            ]
+        ):
+            out_metrics = tool_get_warehouse_metrics()
+            executed_tools.append(
+                {"tool": "get_warehouse_metrics", "output": out_metrics.model_dump()}
+            )
+            tracer.log_tool_call("get_warehouse_metrics", {}, out_metrics.model_dump())
+
+            reply = (
+                f"📈 **Indicadores Operacionais do Armazém (KPIs)**\n\n"
+                f"• **Vazão Atual:** {out_metrics.throughput_per_hour:.1f} pedidos/hora\n"
+                f"• **Ordens Separadas:** {out_metrics.completed_orders} pedidos concluídos\n"
+                f"• **Ordens em Fila:** {out_metrics.pending_orders} pedidos pendentes\n"
+                f"• **Taxa de Utilização da Frota:** {out_metrics.fleet_utilization_pct}%\n"
+                f"• **Bateria Média da Frota:** {out_metrics.average_battery_pct}%\n"
+                f"• **Dimensões do Galpão Ativo:** {out_metrics.grid_size} células\n"
+                f"• **Tamanho da Frota:** {out_metrics.fleet_size} AMRs\n"
+                f"• **Áreas Bloqueadas:** {out_metrics.active_incidents}"
+            )
+            tracer.end_trace(reply)
+            return CopilotResponse(reply=reply, executed_tools=executed_tools)
+
+        # 8. Tool: Engenharia de Caos & Simulação de Falhas Controladas
+        if any(
+            w in query_lower
+            for w in [
+                "caos",
+                "chaos",
+                "simular colisão",
+                "simular colisao",
+                "provocar acidente",
+                "teste de colisão",
+                "derrapagem",
+                "wheel slip",
+                "falha de rede",
+                "falha de wifi",
+                "ponto cego",
+            ]
+        ):
+            inc_type = "random"
+            if "derrapagem" in query_lower or "slip" in query_lower:
+                inc_type = "slip"
+            elif "wifi" in query_lower or "rede" in query_lower:
+                inc_type = "wifi"
+            elif "ponto cego" in query_lower or "lidar" in query_lower:
+                inc_type = "lidar"
+
+            out_chaos = tool_trigger_chaos(incident_type=inc_type)
+            executed_tools.append({"tool": "trigger_chaos", "output": out_chaos.model_dump()})
+            tracer.log_tool_call(
+                "trigger_chaos", {"incident_type": inc_type}, out_chaos.model_dump()
+            )
+
+            if out_chaos.success:
+                reply = (
+                    f"💥 **Incidente de Teste (Chaos Engineering) Injetado**\n\n"
+                    f"• **Tipo de Falha:** `{out_chaos.incident_type}`\n"
+                    f"• **Robôs Envolvidos:** {', '.join(out_chaos.affected_amrs)}\n"
+                    f"• **Ação Corretiva Recomendada (CAPA):** {out_chaos.rca_summary}\n\n"
+                    f"A War Room de Investigação Forense (RCA) foi gerada e está acessível no banner do simulador."
+                )
+            else:
+                reply = f"⚠️ {out_chaos.message}"
+
+            tracer.end_trace(reply)
+            return CopilotResponse(reply=reply, executed_tools=executed_tools)
+
+        # 9. Tool: Bloqueio de Célula / Corredor
         coords_match = re.search(r"\(?\s*(\d+)\s*[,e ]+\s*(\d+)\s*\)?", user_query)
         if any(
             w in query_lower
@@ -138,7 +464,7 @@ class WarehouseCopilotAgent:
                 tracer.end_trace(reply)
                 return CopilotResponse(reply=reply, executed_tools=executed_tools)
 
-        # 3. Tool: Liberação de Célula
+        # 10. Tool: Liberação de Célula
         if any(w in query_lower for w in ["liberar", "libere", "desbloquear", "unblock"]):
             if coords_match:
                 x, y = int(coords_match.group(1)), int(coords_match.group(2))
@@ -154,7 +480,7 @@ class WarehouseCopilotAgent:
                 tracer.end_trace(reply)
                 return CopilotResponse(reply=reply, executed_tools=executed_tools)
 
-        # 4. Tool: Consulta de Telemetria / Status da Frota
+        # 11. Tool: Consulta de Telemetria / Status Geral da Frota
         if any(w in query_lower for w in ["status", "telemetria", "bateria", "battery"]):
             out_telemetry = tool_get_fleet_telemetry()
             executed_tools.append(
@@ -179,11 +505,10 @@ class WarehouseCopilotAgent:
             tracer.end_trace(reply)
             return CopilotResponse(reply=reply, executed_tools=executed_tools)
 
-        # 5. Tool: Escalabilidade de Frota (Adicionar / Remover / Escalonar N Robôs)
+        # 12. Tool: Escalabilidade de Frota (Adicionar / Remover / Escalonar N Robôs)
         scale_match = re.search(r"(\d+)\s*(rob[oô]s?|amrs?|unidades?)", query_lower)
         num_extracted = int(scale_match.group(1)) if scale_match else 1
-        amr_match = re.search(r"(amr-\d+)", query_lower)
-        specific_amr = amr_match.group(1).upper() if amr_match else None
+        specific_amr = _extract_amr_id(query_lower)
 
         if any(
             w in query_lower for w in ["adicionar", "adicione", "inserir", "add", "acrescentar"]
@@ -257,17 +582,28 @@ class WarehouseCopilotAgent:
             tracer.end_trace(reply)
             return CopilotResponse(reply=reply, executed_tools=executed_tools)
 
-        # Resposta Padrão / Ajuda Operacional
+        # 13. Resposta Padrão / Menu de Comandos Completo
         reply = (
-            "🤖 **NexusFleet Copilot Operacional Ativo**\n\n"
-            "Posso auxiliar você com os seguintes comandos em linguagem natural:\n"
-            '• *"Adicionar 3 robôs à frota"*\n'
-            '• *"Remover o robô AMR-02"*\n'
+            "🤖 **NexusFleet Copilot — Guia de Comandos Operacionais**\n\n"
+            "Posso executar as seguintes operações em linguagem natural:\n\n"
+            "📜 **Auditoria & Telemetria:**\n"
+            '• *"Exiba os logs do robô AMR-03"*\n'
+            '• *"Qual a posição e carga do AMR-02?"*\n'
+            '• *"Status atual da frota e baterias"*\n'
+            '• *"Qual o throughput e ordens entregues?"*\n\n'
+            "🔧 **Self-Healing & Controle:**\n"
+            '• *"Destravar o robô AMR-01"*\n'
+            '• *"Pausar a simulação"* ou *"Retomar a simulação"*\n'
+            '• *"Velocidade 2x"*\n\n'
+            "🚧 **Gestão de Tráfego & Incidentes:**\n"
             '• *"Bloqueie o ponto (10, 8) por derramamento de óleo"*\n'
             '• *"Liberar a coordenada (10, 8)"*\n'
-            '• *"Qual o status atual da frota e das baterias?"*\n'
-            '• *"Parada de emergência geral"* *(aciona proteção HITL)*\n\n'
-            "*Todas as operações são executadas de forma determinística pelo motor Space-Time MAPF.*"
+            '• *"Simular colisão de teste (Chaos Engineering)"*\n\n'
+            "🚀 **Dimensionamento de Frota:**\n"
+            '• *"Adicionar 2 robôs à frota"*\n'
+            '• *"Remover o robô AMR-04"*\n\n'
+            "🛑 **Segurança Física:**\n"
+            '• *"Parada de emergência geral"* *(ativa proteção HITL - ISO 3691-4)*'
         )
         tracer.end_trace(reply)
         return CopilotResponse(reply=reply, executed_tools=executed_tools)
