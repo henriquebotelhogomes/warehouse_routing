@@ -22,7 +22,7 @@ dependencies = [
     "langfuse>=2.0.0",
 ]
 
-# ✅ Novo padrão do uv para dependências de desenvolvimento
+# ✅ Padrão do uv e compatibilidade com pip install .[dev]
 [dependency-groups]
 dev = [
     "pytest>=8.0.0",
@@ -32,6 +32,17 @@ dev = [
     "pre-commit>=3.6.0",
     "types-requests>=2.31.0.20240125",
 ]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-cov>=4.1.0",
+    "mypy>=1.9.0",
+    "ruff>=0.3.0",
+    "pre-commit>=3.6.0",
+    "types-requests>=2.31.0.20240125",
+]
+
 
 [tool.mypy]
 python_version = "3.12"

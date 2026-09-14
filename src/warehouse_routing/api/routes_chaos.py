@@ -101,9 +101,7 @@ def export_incident_report(incident_id: str) -> Response:
     return Response(
         content=md_content,
         media_type="text/markdown",
-        headers={
-            "Content-Disposition": f'attachment; filename="laudo-{incident_id}.md"'
-        },
+        headers={"Content-Disposition": f'attachment; filename="laudo-{incident_id}.md"'},
     )
 
 

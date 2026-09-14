@@ -212,7 +212,9 @@ def tool_scale_fleet(
     orch = _orchestrator_ref
     prev = len(orch.amrs)
 
-    if action_type == "add" or (action_type == "scale" and target_count is not None and target_count > prev):
+    if action_type == "add" or (
+        action_type == "scale" and target_count is not None and target_count > prev
+    ):
         n = (count or 1) if action_type == "add" else (target_count - prev if target_count else 1)
         added = orch.add_amrs(max(1, n))
         return ScaleFleetOutput(
@@ -224,11 +226,17 @@ def tool_scale_fleet(
             message=f"Frota expandida: +{len(added)} robôs adicionados ({', '.join(added)}). Total atual: {len(orch.amrs)} robôs.",
         )
 
-    elif action_type == "remove" or (action_type == "scale" and target_count is not None and target_count < prev):
+    elif action_type == "remove" or (
+        action_type == "scale" and target_count is not None and target_count < prev
+    ):
         if amr_id:
             removed = orch.remove_amrs(count=1, specific_ids=[amr_id])
         else:
-            n = (count or 1) if action_type == "remove" else (prev - target_count if target_count else 1)
+            n = (
+                (count or 1)
+                if action_type == "remove"
+                else (prev - target_count if target_count else 1)
+            )
             removed = orch.remove_amrs(count=max(1, n))
 
         return ScaleFleetOutput(
@@ -260,4 +268,3 @@ def tool_scale_fleet(
         affected_amrs=res["added_amrs"] or res["removed_amrs"],
         message=f"Capacidade da frota ajustada para {res['current_count']} robôs.",
     )
-

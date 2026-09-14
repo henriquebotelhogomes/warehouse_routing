@@ -99,9 +99,7 @@ class FleetOrchestrator:
         occupied_positions = {(amr.grid_x, amr.grid_y) for amr in self.amrs.values()}
 
         # Encontra vagas válidas: docas livres primeiro, depois corredores livres
-        free_docks = [
-            dock for dock in self.grid.charging_docks if dock not in occupied_positions
-        ]
+        free_docks = [dock for dock in self.grid.charging_docks if dock not in occupied_positions]
 
         # Corredores livres candidatos (sem obstáculos, sem pods, sem dynamic blocks, sem robôs)
         free_corridors = []
@@ -238,7 +236,9 @@ class FleetOrchestrator:
                     tick=self.current_tick,
                     timestamp=time.strftime("%H:%M:%S"),
                     type="FLEET_SCALE",
-                    severity="WARNING" if any(a.carrying_pod_id for a in targets_to_remove) else "INFO",
+                    severity="WARNING"
+                    if any(a.carrying_pod_id for a in targets_to_remove)
+                    else "INFO",
                     description=f"Descomissionamento de frota: -{len(removed_ids)} robôs ({', '.join(removed_ids)}). Total restante: {len(self.amrs)} AMRs.",
                     affected_amrs=removed_ids,
                     resolved_in_seconds=0.0,
@@ -403,7 +403,9 @@ class FleetOrchestrator:
                     self.reservations.reserve_path(amr.id, path, start_time=self.current_tick)
 
             # 3. Ficou ocioso com bateria baixa -> Rota para doca de recarga
-            elif amr.state == AMRState.IDLE and amr.is_battery_critical() and amr.has_completed_path:
+            elif (
+                amr.state == AMRState.IDLE and amr.is_battery_critical() and amr.has_completed_path
+            ):
                 start_pos = (amr.grid_x, amr.grid_y)
                 if start_pos == amr.assigned_dock_pos:
                     amr.state = AMRState.CHARGING

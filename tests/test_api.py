@@ -164,4 +164,3 @@ def test_chaos_api_endpoints(client: TestClient) -> None:
     )
     assert resolve_resp.status_code == 200
     assert resolve_resp.json()["success"] is True
-

@@ -81,7 +81,9 @@ class AMRAgent:
 
     def is_available_for_orders(self) -> bool:
         """Verifica se o robô está livre e com energia suficiente para novas tarefas."""
-        return self.state == AMRState.IDLE and not self.is_battery_critical() and not self.is_crashed
+        return (
+            self.state == AMRState.IDLE and not self.is_battery_critical() and not self.is_crashed
+        )
 
     def set_path(self, path: List[Tuple[int, int]]) -> None:
         """Atribui uma nova rota calculada pelo SpaceTimeAStar."""

@@ -90,19 +90,25 @@ class WebSocketTelemetryHub:
             elif action == "CLEAR_ALL_BLOCKS":
                 for b in list(self.orchestrator.grid.dynamic_blocks):
                     self.orchestrator.unblock_area(b[0], b[1])
-                logger.info("Comando CLEAR_ALL_BLOCKS executado: todas as interdições foram liberadas.")
+                logger.info(
+                    "Comando CLEAR_ALL_BLOCKS executado: todas as interdições foram liberadas."
+                )
 
             elif action == "ADD_AMRS":
                 count = int(command.get("count", 1))
                 added = self.orchestrator.add_amrs(count)
-                logger.info(f"Comando ADD_AMRS: {len(added)} robôs adicionados ({', '.join(added)})")
+                logger.info(
+                    f"Comando ADD_AMRS: {len(added)} robôs adicionados ({', '.join(added)})"
+                )
 
             elif action == "REMOVE_AMRS":
                 count = int(command.get("count", 1))
                 specific_id = command.get("amr_id")
                 specific_ids = [specific_id] if specific_id else None
                 removed = self.orchestrator.remove_amrs(count=count, specific_ids=specific_ids)
-                logger.info(f"Comando REMOVE_AMRS: {len(removed)} robôs removidos ({', '.join(removed)})")
+                logger.info(
+                    f"Comando REMOVE_AMRS: {len(removed)} robôs removidos ({', '.join(removed)})"
+                )
 
             elif action == "SET_FLEET_SIZE":
                 count = int(command.get("count", 8))
@@ -117,13 +123,17 @@ class WebSocketTelemetryHub:
                 failure_type = command.get("failure_type", "random")
                 count = int(command.get("count", 1))
                 report = self.orchestrator.inject_chaos(failure_type=failure_type, count=count)
-                logger.warning(f"Comando INJECT_CHAOS executado via WebSocket: {report.incident_id}")
+                logger.warning(
+                    f"Comando INJECT_CHAOS executado via WebSocket: {report.incident_id}"
+                )
 
             elif action == "RESOLVE_INCIDENT":
                 incident_id = command.get("incident_id")
                 self_healing = bool(command.get("self_healing", True))
                 if incident_id:
-                    self.orchestrator.resolve_incident(incident_id=incident_id, self_healing=self_healing)
+                    self.orchestrator.resolve_incident(
+                        incident_id=incident_id, self_healing=self_healing
+                    )
                     logger.info(f"Comando RESOLVE_INCIDENT executado via WebSocket: {incident_id}")
 
             # Envia atualização imediata após qualquer comando

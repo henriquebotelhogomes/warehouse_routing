@@ -127,11 +127,15 @@ class ChaosEngine:
         else:
             resolved_type = failure_type
 
-        meta = cls.FAILURE_METADATA.get(resolved_type, cls.FAILURE_METADATA[ChaosFailureType.WHEEL_SLIP])
+        meta = cls.FAILURE_METADATA.get(
+            resolved_type, cls.FAILURE_METADATA[ChaosFailureType.WHEEL_SLIP]
+        )
 
         amrs = list(orchestrator.amrs.values())
         if len(amrs) < 2:
-            raise ValueError("São necessários pelo menos 2 robôs na frota para simular uma colisão.")
+            raise ValueError(
+                "São necessários pelo menos 2 robôs na frota para simular uma colisão."
+            )
 
         # Prioriza robôs que estejam em movimento
         moving_amrs = [a for a in amrs if len(a.path) > a.path_step_idx]
@@ -249,14 +253,14 @@ class ChaosEngine:
         md = f"""# 🚨 Relatório Pericial de Incidente de Robótica (RCA)
 **ID do Incidente:** `{report.incident_id}`  
 **Data e Hora:** {report.timestamp} | **Tick da Simulação:** #{report.tick}  
-**Status:** {'✅ RESOLVIDO' if report.is_resolved else '⚠️ EM ANÁLISE / ATIVO'}  
+**Status:** {"✅ RESOLVIDO" if report.is_resolved else "⚠️ EM ANÁLISE / ATIVO"}  
 **Norma de Referência:** ISO 3691-4 (Requisitos de Segurança para Veículos Industriais Não Guiados)
 
 ---
 
 ## 📍 Localização e Agentes Envolvidos
-* **Coordenada do Impacto:** Célula `X: {report.location['x']} | Y: {report.location['y']}`
-* **Agentes Envolvidos:** {', '.join(report.involved_amrs)}
+* **Coordenada do Impacto:** Célula `X: {report.location["x"]} | Y: {report.location["y"]}`
+* **Agentes Envolvidos:** {", ".join(report.involved_amrs)}
 * **Agente Culpado (Infrator Primário):** `{report.primary_fault_amr}`
 * **Modo de Falha Identificado:** **{report.failure_type_label}**
 * **Severidade do Dano:** `{report.impact_metrics.damage_severity}`
@@ -265,8 +269,8 @@ class ChaosEngine:
 
 ## 📊 Métricas de Impacto Operacional
 * **Velocidade Relativa no Impacto:** `{report.impact_metrics.speed_at_impact_ms} m/s`
-* **Pedidos Interrompidos:** {', '.join(report.impact_metrics.interrupted_orders) if report.impact_metrics.interrupted_orders else 'Nenhum pedido ativo'}
-* **Prateleiras / Pods Atingidos:** {', '.join(report.impact_metrics.affected_pods) if report.impact_metrics.affected_pods else 'Nenhum pod carregado no momento'}
+* **Pedidos Interrompidos:** {", ".join(report.impact_metrics.interrupted_orders) if report.impact_metrics.interrupted_orders else "Nenhum pedido ativo"}
+* **Prateleiras / Pods Atingidos:** {", ".join(report.impact_metrics.affected_pods) if report.impact_metrics.affected_pods else "Nenhum pod carregado no momento"}
 * **Atraso Estimado no SLA:** `+{report.impact_metrics.estimated_sla_delay_seconds} segundos`
 
 ---

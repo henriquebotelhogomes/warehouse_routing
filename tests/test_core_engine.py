@@ -86,7 +86,11 @@ def test_continuous_mission_lifecycle_no_deadlock():
 
     # Verifica que nenhum robô ficou preso indefinidamente em estado de transição sem caminho
     for amr in orchestrator.amrs.values():
-        if amr.state in (AMRState.TRANSITING_TO_PICKING, AMRState.MOVING_TO_POD, AMRState.RETURNING_POD):
+        if amr.state in (
+            AMRState.TRANSITING_TO_PICKING,
+            AMRState.MOVING_TO_POD,
+            AMRState.RETURNING_POD,
+        ):
             # Se está em trânsito, DEVE ter um caminho planejado
             assert len(amr.path) > 0
             assert amr.path_step_idx <= len(amr.path)
@@ -174,5 +178,3 @@ def test_incident_resolution_and_self_healing():
         amr = orchestrator.amrs[amr_id]
         assert amr.state != AMRState.CRASHED
         assert amr.is_crashed is False
-
-

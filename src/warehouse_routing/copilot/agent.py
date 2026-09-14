@@ -118,9 +118,13 @@ class WarehouseCopilotAgent:
                     reason = "Queda de pallet"
 
                 out_block = tool_block_zone(x, y, reason=reason)
-                executed_tools.append({"tool": "block_warehouse_zone", "output": out_block.model_dump()})
+                executed_tools.append(
+                    {"tool": "block_warehouse_zone", "output": out_block.model_dump()}
+                )
                 tracer.log_tool_call(
-                    "block_warehouse_zone", {"x": x, "y": y, "reason": reason}, out_block.model_dump()
+                    "block_warehouse_zone",
+                    {"x": x, "y": y, "reason": reason},
+                    out_block.model_dump(),
                 )
 
                 reply = (
@@ -142,19 +146,20 @@ class WarehouseCopilotAgent:
                 executed_tools.append(
                     {"tool": "unblock_warehouse_zone", "output": out_unblock.model_dump()}
                 )
-                tracer.log_tool_call("unblock_warehouse_zone", {"x": x, "y": y}, out_unblock.model_dump())
+                tracer.log_tool_call(
+                    "unblock_warehouse_zone", {"x": x, "y": y}, out_unblock.model_dump()
+                )
 
                 reply = f"✅ **Célula ({x}, {y}) Desbloqueada**\n\nO corredor está novamente liberado para planejamento de tráfego dos AMRs."
                 tracer.end_trace(reply)
                 return CopilotResponse(reply=reply, executed_tools=executed_tools)
 
         # 4. Tool: Consulta de Telemetria / Status da Frota
-        if any(
-            w in query_lower
-            for w in ["status", "telemetria", "bateria", "battery"]
-        ):
+        if any(w in query_lower for w in ["status", "telemetria", "bateria", "battery"]):
             out_telemetry = tool_get_fleet_telemetry()
-            executed_tools.append({"tool": "get_fleet_telemetry", "output": out_telemetry.model_dump()})
+            executed_tools.append(
+                {"tool": "get_fleet_telemetry", "output": out_telemetry.model_dump()}
+            )
             tracer.log_tool_call("get_fleet_telemetry", {}, out_telemetry.model_dump())
 
             crit_str = (
@@ -180,10 +185,16 @@ class WarehouseCopilotAgent:
         amr_match = re.search(r"(amr-\d+)", query_lower)
         specific_amr = amr_match.group(1).upper() if amr_match else None
 
-        if any(w in query_lower for w in ["adicionar", "adicione", "inserir", "add", "acrescentar"]):
+        if any(
+            w in query_lower for w in ["adicionar", "adicione", "inserir", "add", "acrescentar"]
+        ):
             out_scale = tool_scale_fleet(action_type="add", count=num_extracted)
             executed_tools.append({"tool": "scale_fleet", "output": out_scale.model_dump()})
-            tracer.log_tool_call("scale_fleet", {"action_type": "add", "count": num_extracted}, out_scale.model_dump())
+            tracer.log_tool_call(
+                "scale_fleet",
+                {"action_type": "add", "count": num_extracted},
+                out_scale.model_dump(),
+            )
             reply = (
                 f"🚀 **Frota Expandida Dinamicamente**\n\n"
                 f"• **Robôs Adicionados:** +{len(out_scale.affected_amrs)} ({', '.join(out_scale.affected_amrs)})\n"
@@ -194,10 +205,26 @@ class WarehouseCopilotAgent:
             tracer.end_trace(reply)
             return CopilotResponse(reply=reply, executed_tools=executed_tools)
 
-        if any(w in query_lower for w in ["remover", "remova", "descomissionar", "descomissione", "remove", "decommission"]):
-            out_scale = tool_scale_fleet(action_type="remove", count=num_extracted, amr_id=specific_amr)
+        if any(
+            w in query_lower
+            for w in [
+                "remover",
+                "remova",
+                "descomissionar",
+                "descomissione",
+                "remove",
+                "decommission",
+            ]
+        ):
+            out_scale = tool_scale_fleet(
+                action_type="remove", count=num_extracted, amr_id=specific_amr
+            )
             executed_tools.append({"tool": "scale_fleet", "output": out_scale.model_dump()})
-            tracer.log_tool_call("scale_fleet", {"action_type": "remove", "count": num_extracted, "amr_id": specific_amr}, out_scale.model_dump())
+            tracer.log_tool_call(
+                "scale_fleet",
+                {"action_type": "remove", "count": num_extracted, "amr_id": specific_amr},
+                out_scale.model_dump(),
+            )
             reply = (
                 f"🧹 **Descomissionamento Seguro Realizado**\n\n"
                 f"• **Robôs Removidos:** {', '.join(out_scale.affected_amrs)}\n"
@@ -207,10 +234,20 @@ class WarehouseCopilotAgent:
             tracer.end_trace(reply)
             return CopilotResponse(reply=reply, executed_tools=executed_tools)
 
-        if any(w in query_lower for w in ["ajustar frota", "escalar frota", "definir frota", "scale fleet"]) and scale_match:
+        if (
+            any(
+                w in query_lower
+                for w in ["ajustar frota", "escalar frota", "definir frota", "scale fleet"]
+            )
+            and scale_match
+        ):
             out_scale = tool_scale_fleet(action_type="scale", target_count=num_extracted)
             executed_tools.append({"tool": "scale_fleet", "output": out_scale.model_dump()})
-            tracer.log_tool_call("scale_fleet", {"action_type": "scale", "target_count": num_extracted}, out_scale.model_dump())
+            tracer.log_tool_call(
+                "scale_fleet",
+                {"action_type": "scale", "target_count": num_extracted},
+                out_scale.model_dump(),
+            )
             reply = (
                 f"⚖️ **Capacidade da Frota Ajustada**\n\n"
                 f"• **Meta Definida:** {num_extracted} AMRs\n"
