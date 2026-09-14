@@ -9,9 +9,7 @@ from playwright.sync_api import sync_playwright
 
 def capture_all():
     output_dir = os.path.abspath("screenshots")
-    typo_dir = os.path.abspath("scheenshots")
     os.makedirs(output_dir, exist_ok=True)
-    os.makedirs(typo_dir, exist_ok=True)
 
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
@@ -138,13 +136,6 @@ def capture_all():
             print("GIF compilation complete!")
 
         browser.close()
-
-    print(f"Mirroring files into {typo_dir}...")
-    for filename in os.listdir(output_dir):
-        src = os.path.join(output_dir, filename)
-        dst = os.path.join(typo_dir, filename)
-        if os.path.isfile(src):
-            shutil.copy2(src, dst)
 
     print("All screenshots and GIFs captured successfully!")
 
