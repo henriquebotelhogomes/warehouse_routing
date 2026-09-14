@@ -39,7 +39,7 @@ export const App: React.FC = () => {
       // Se estiver em dev no Vite porta 5173, usa localhost:8000
       const wsUrl =
         window.location.port === "5173"
-          ? "ws://localhost:8000/ws/telemetry"
+          ? "ws://localhost:8080/ws/telemetry"
           : `${protocol}//${host}/ws/telemetry`;
 
       setWsStatus("connecting");
