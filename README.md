@@ -1,4 +1,4 @@
-# 🤖 NexusFleet AMR: Autonomous Fleet Orchestrator & Digital Twin
+# NexusFleet AMR: Autonomous Fleet Orchestrator & Digital Twin
 
 [![Python Version](https://img.shields.io/badge/Python-3.12%2B-blue.svg)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.110%2B-05998b.svg)](https://fastapi.tiangolo.com/)
@@ -13,9 +13,9 @@
 [![Code Style: Ruff](https://img.shields.io/badge/Code%20Style-Ruff-000000.svg)](https://github.com/astral-sh/ruff)
 [![Type Checking: Mypy](https://img.shields.io/badge/Type%20Checking-Mypy%20Strict-blue.svg)](http://mypy-lang.org/)
 
-> **Status da Plataforma:** 🚀 Produção Corporativa  
-> **Interface Interativa:** `https://nexusfleet-amr.a.run.app` *(ou `http://localhost:8000`)*  
-> **Documentação da API (Scalar):** `http://localhost:8000/docs`
+> **Status da Plataforma:** Produção Corporativa  
+> **Interface Interativa:** [https://nexusfleet-amr.a.run.app](https://nexusfleet-amr.a.run.app) *(ou [http://localhost:8000](http://localhost:8000))*  
+> **Documentação da API (Scalar):** [https://nexusfleet-amr.a.run.app/docs](https://nexusfleet-amr.a.run.app/docs) *(ou [http://localhost:8000/docs](http://localhost:8000/docs))*
 
 <div align="center">
   <img src="screenshots/nexusfleet_demo.gif" alt="NexusFleet AMR Digital Twin Demo" width="100%" style="border-radius: 12px; box-shadow: 0 20px 40px rgba(0,0,0,0.4);" />
@@ -28,33 +28,33 @@ O sistema integra o estado da arte em **Roteamento Espaço-Temporal Multi-Agente
 
 ---
 
-## 📸 Galeria de Recursos & Screenshots
+## Galeria de Recursos & Screenshots
 
-| 🎮 Simulador Digital Twin 2D/3D | 🔍 Telemetria & Detalhe do Robô |
+| Simulador Digital Twin 2D/3D | Telemetria & Detalhe do Robô |
 |:---:|:---:|
 | ![Digital Twin Simulator](screenshots/01_digital_twin_simulator.png) | ![AMR Detail Modal](screenshots/02_amr_detail_modal.png) |
 
-| 📋 Central de Logs & Auto-Cura | 💬 Copiloto de IA com Guardrails HITL |
+| Central de Logs & Auto-Cura | Copiloto de IA com Guardrails HITL |
 |:---:|:---:|
 | ![Fleet Logs Terminal](screenshots/03_fleet_logs_terminal.png) | ![Copilot AI](screenshots/04_copilot_assistant.png) |
 
-| 📐 Studio de Layout de Galpão (BFS) | 📊 Executive Shift Analytics & BI |
+| Studio de Layout de Galpão (BFS) | Executive Shift Analytics & BI |
 |:---:|:---:|
 | ![Layout Studio](screenshots/05_layout_studio.png) | ![Analytics BI](screenshots/06_analytics_bi.png) |
 
-| 📑 Documentação Viva de APIs (Scalar) |
+| Documentação Viva de APIs (Scalar) |
 |:---:|
 | ![Scalar API Docs](screenshots/07_scalar_api_docs.png) |
 
 ---
 
-## 🎯 Arquitetura do Sistema (Single-Container Full-Stack)
+## Arquitetura do Sistema (Single-Container Full-Stack)
 
 A aplicação é construída como um monólito conteinerizado de alta performance, sem problemas de CORS e com **custo operacional de R$ 0,00 / mês** (Google Cloud Run com Scale-to-Zero).
 
 ```mermaid
 graph TB
-    subgraph Browser ["🖥️ Frontend SPA (React 19 + Canvas 60 FPS + Tailwind + Lucide)"]
+    subgraph Browser ["Frontend SPA (React 19 + Canvas 60 FPS + Tailwind + Lucide)"]
         Canvas["Digital Twin 2D (LERP, Zoom & Pan, Grid Coordinates)"]
         WarRoom["Incident War Room (5-Whys RCA + Blackbox Replay)"]
         Studio["Warehouse Layout Studio (Drag-and-Drop + BFS)"]
@@ -62,12 +62,12 @@ graph TB
         Copilot["Copiloto Conversacional com HITL Cards (PT/EN)"]
     end
 
-    subgraph Container ["☁️ Google Cloud Run Container (Porta 8000)"]
+    subgraph Container ["Google Cloud Run Container (Porta 8000)"]
         FastAPI["FastAPI Async Engine + Static Serving"]
         Scalar["Scalar Interactive API Documentation (/docs)"]
         WSHub["WebSocket Delta Telemetry Server (/ws/telemetry)"]
         
-        subgraph CoreRobotics ["🧠 Core Robotics Engine"]
+        subgraph CoreRobotics ["Core Robotics Engine"]
             MAPF["Space-Time A* + Reservation Table (x, y, t)"]
             Fleet["Fleet Orchestrator & Elastic Scaling (+/- N AMRs)"]
             Chaos["Chaos Injection Engine (Sensor, Actuator, Comm, Blind Spot)"]
@@ -75,7 +75,7 @@ graph TB
             Heatmap["Evaporative Congestion Heatmap (Physics Decay)"]
         end
 
-        subgraph CopilotAgent ["🤖 Agentic AI & Safety"]
+        subgraph CopilotAgent ["Agentic AI & Safety"]
             Dispatcher["Deterministic Tool Calling (Gemini Pro)"]
             Guardrails["Safety Guardrails & HITL Approvals (ISO 3691-4)"]
             Tracer["Langfuse Telemetry & FinOps Tracing"]
@@ -97,7 +97,7 @@ graph TB
 
 ---
 
-## 🚀 Os 8 Grandes Diferenciais Técnicos
+## Os 8 Grandes Diferenciais Técnicos
 
 ### 1. Space-Time Multi-Agent Path Finding (MAPF)
 * Modela a malha do galpão em um grafo espaço-temporal tridimensional $(x, y, t)$.
@@ -150,7 +150,7 @@ graph TB
 
 ---
 
-## ⚡ Como Executar Localmente
+## Como Executar Localmente
 
 ### Pré-requisitos
 * Python 3.12+ e [uv](https://docs.astral.sh/uv/) instalado
@@ -181,15 +181,15 @@ uv run python run.py
 *(Ou alternativamente via uvicorn: `uv run uvicorn warehouse_routing.api.main:app --host 0.0.0.0 --port 8000`)*
 
 Acesse no seu navegador:
-* 🎮 **Digital Twin & Plataforma:** `http://localhost:8000`
-* 📑 **Documentação Interativa da API (Scalar):** `http://localhost:8000/docs`
+* **Digital Twin & Plataforma:** [http://localhost:8000](http://localhost:8000)
+* **Documentação Interativa da API (Scalar):** [http://localhost:8000/docs](http://localhost:8000/docs)
 
 ---
 
-## 🧪 Suíte de Testes e Qualidade
+## Suíte de Testes e Qualidade
 
 ```bash
-# Executar todos os testes unitários e de integração (19 testes passando - 100%)
+# Executar todos os testes unitários e de integração (20 testes passando - 100%)
 uv run pytest tests/ -v
 
 # Verificação estática de tipos
@@ -202,7 +202,7 @@ uv run ruff format src/ tests/
 
 ---
 
-## ☁️ Deploy no Google Cloud Run (Custo R$ 0,00 / Mês)
+## Deploy no Google Cloud Run (Custo R$ 0,00 / Mês)
 
 O projeto foi arquitetado para aproveitar a cota **Always Free** do Google Cloud Run (2 milhões de requisições mensais gratuitas com Scale-to-Zero).
 
@@ -214,13 +214,13 @@ O projeto foi arquitetado para aproveitar a cota **Always Free** do Google Cloud
 
 ---
 
-## 📄 Licença
+## Licença
 
 Distribuído sob a licença **MIT**. Consulte o arquivo [`LICENSE`](LICENSE) para obter mais informações.
 
 ---
 
-## 👨‍💻 Autor
+## Autor
 
 **Henrique Botelho Gomes**  
 *Engenheiro de Software Sênior | Especialista em IA Aplicada & Sistemas Distribuídos*  
