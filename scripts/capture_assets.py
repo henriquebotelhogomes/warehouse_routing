@@ -1,8 +1,11 @@
+import io
 import os
 import shutil
 import time
-from playwright.sync_api import sync_playwright
+
 from PIL import Image
+from playwright.sync_api import sync_playwright
+
 
 def capture_all():
     output_dir = os.path.abspath("screenshots")
@@ -108,12 +111,11 @@ def capture_all():
         print("Recording animated GIF frames from Simulator...")
         page.goto("http://localhost:8080", wait_until="networkidle")
         time.sleep(2)
-        
+
         frames = []
         frame_count = 35
-        for i in range(frame_count):
+        for _ in range(frame_count):
             frame_bytes = page.screenshot(type="jpeg", quality=85)
-            import io
             img = Image.open(io.BytesIO(frame_bytes))
             img = img.resize((1080, 675), Image.Resampling.LANCZOS)
             img_p = img.convert("P", palette=Image.Palette.ADAPTIVE, colors=128)
@@ -145,6 +147,7 @@ def capture_all():
             shutil.copy2(src, dst)
 
     print("All screenshots and GIFs captured successfully!")
+
 
 if __name__ == "__main__":
     capture_all()
