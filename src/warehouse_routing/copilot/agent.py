@@ -93,13 +93,15 @@ class WarehouseCopilotAgent:
                 "travar frota",
             ]
         ):
-            action = hitl_manager.create_action(
+            hitl_action = hitl_manager.create_action(
                 action_type="EMERGENCY_STOP",
                 parameters={"activate": True},
                 description="Parada Geral de Emergência de Todos os Robôs AMRs",
                 warning_message="Esta ação congelará imediatamente a movimentação de todos os robôs ativos no galpão, suspendendo ordens de separação em andamento.",
             )
-            tracer.log_tool_call("emergency_stop_request", {"activate": True}, action.action_token)
+            tracer.log_tool_call(
+                "emergency_stop_request", {"activate": True}, hitl_action.action_token
+            )
             reply = (
                 "⚠️ **Ação de Alta Criticidade Detectada (ISO 3691-4)**\n\n"
                 "Para paralisar a frota de robôs, é necessária confirmação humana explícita (*Human-In-The-Loop*). "
@@ -110,9 +112,9 @@ class WarehouseCopilotAgent:
                 reply=reply,
                 hitl_action_required=True,
                 hitl_card={
-                    "token": action.action_token,
+                    "token": hitl_action.action_token,
                     "title": "⚠️ Parada de Emergência da Frota",
-                    "description": action.warning_message,
+                    "description": hitl_action.warning_message,
                     "confirm_text": "Confirmar Parada Imediata",
                     "cancel_text": "Abortar",
                 },
@@ -131,7 +133,7 @@ class WarehouseCopilotAgent:
                 "despausar emergência",
             ]
         ):
-            action = hitl_manager.create_action(
+            hitl_action = hitl_manager.create_action(
                 action_type="EMERGENCY_STOP",
                 parameters={"activate": False},
                 description="Desativação da Parada de Emergência da Frota",
@@ -145,9 +147,9 @@ class WarehouseCopilotAgent:
                 reply=reply,
                 hitl_action_required=True,
                 hitl_card={
-                    "token": action.action_token,
+                    "token": hitl_action.action_token,
                     "title": "🛡️ Retomar Operação Normal",
-                    "description": action.warning_message,
+                    "description": hitl_action.warning_message,
                     "confirm_text": "Confirmar Retomada",
                     "cancel_text": "Cancelar",
                 },
@@ -320,18 +322,18 @@ class WarehouseCopilotAgent:
             speed_match = re.search(r"(\d+(?:\.\d+)?)\s*x", query_lower)
             spd = float(speed_match.group(1)) if speed_match else None
 
-            action = "toggle"
+            sim_action = "toggle"
             if any(w in query_lower for w in ["pausar", "pause", "congelar"]):
-                action = "pause"
+                sim_action = "pause"
             elif any(w in query_lower for w in ["iniciar", "retomar", "despausar", "play"]):
-                action = "resume"
+                sim_action = "resume"
             elif spd:
-                action = "set_speed"
+                sim_action = "set_speed"
 
-            out_sim = tool_simulation_control(action=action, speed=spd)
+            out_sim = tool_simulation_control(action=sim_action, speed=spd)
             executed_tools.append({"tool": "simulation_control", "output": out_sim.model_dump()})
             tracer.log_tool_call(
-                "simulation_control", {"action": action, "speed": spd}, out_sim.model_dump()
+                "simulation_control", {"action": sim_action, "speed": spd}, out_sim.model_dump()
             )
 
             reply = (
