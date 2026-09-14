@@ -76,7 +76,7 @@ export const AnalyticsDashboard: React.FC = () => {
       name,
       value,
     }));
-  }, [amrs]);
+  }, [JSON.stringify(amrs.map((a) => a.state))]);
 
   // Média de Bateria
   const avgBattery =
@@ -262,44 +262,72 @@ export const AnalyticsDashboard: React.FC = () => {
             <Sparkles className="w-4 h-4 text-cyan-400" />
             {t("chart_fleet_states")}
           </h3>
-          <div className="h-64 w-full flex items-center justify-center">
+          <div className="h-64 w-full relative">
             {stateData.length > 0 ? (
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={stateData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={55}
-                    outerRadius={80}
-                    paddingAngle={4}
-                    dataKey="value"
-                  >
-                    {stateData.map((entry) => (
-                      <Cell
-                        key={`cell-${entry.name}`}
-                        fill={STATE_COLORS[entry.name] || "#64748b"}
-                      />
-                    ))}
-                  </Pie>
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: "#0f172a",
-                      borderColor: "#1e293b",
-                      borderRadius: "8px",
-                      color: "#f8fafc",
-                      fontSize: "11px",
-                    }}
-                  />
-                  <Legend
-                    verticalAlign="bottom"
-                    height={36}
-                    wrapperStyle={{ fontSize: "10px", color: "#94a3b8" }}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
+              <>
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={stateData}
+                      cx="50%"
+                      cy="46%"
+                      innerRadius={58}
+                      outerRadius={84}
+                      paddingAngle={3}
+                      dataKey="value"
+                      isAnimationActive={false}
+                      stroke="#0f172a"
+                      strokeWidth={2}
+                    >
+                      {stateData.map((entry) => (
+                        <Cell
+                          key={`cell-${entry.name}`}
+                          fill={STATE_COLORS[entry.name] || "#64748b"}
+                        />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: "#0f172a",
+                        borderColor: "#1e293b",
+                        borderRadius: "8px",
+                        color: "#f8fafc",
+                        fontSize: "11px",
+                      }}
+                      formatter={(value: any, name: any) => [
+                        `${value} robô(s) (${((Number(value) / (amrs.length || 1)) * 100).toFixed(0)}%)`,
+                        name,
+                      ]}
+                    />
+                    <Legend
+                      verticalAlign="bottom"
+                      height={36}
+                      wrapperStyle={{ fontSize: "10px", color: "#94a3b8" }}
+                      formatter={(value: any, entry: any) => (
+                        <span className="text-slate-300">
+                          {value}{" "}
+                          <span className="font-mono text-cyan-400 font-bold">
+                            ({entry.payload?.value ?? 0})
+                          </span>
+                        </span>
+                      )}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+                {/* Indicador Central do Donut com Total de Robôs */}
+                <div className="absolute top-[46%] left-1/2 -translate-x-1/2 -translate-y-1/2 text-center pointer-events-none">
+                  <div className="text-lg font-bold font-mono text-white leading-none">
+                    {amrs.length}
+                  </div>
+                  <div className="text-[9px] uppercase tracking-wider text-slate-400 font-medium mt-0.5">
+                    AMRs
+                  </div>
+                </div>
+              </>
             ) : (
-              <span className="text-xs text-slate-500">Sem dados</span>
+              <div className="h-full flex items-center justify-center text-xs text-slate-500">
+                Sem dados
+              </div>
             )}
           </div>
         </div>
