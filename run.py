@@ -1,48 +1,57 @@
 import os
+import socket
 import sys
-
 import uvicorn
-from warehouse_routing.core.config import BASE_REWARDS_MATRIX, LOCATIONS, settings
-from warehouse_routing.core.q_learning import WarehouseRouteOptimizer
-from warehouse_routing.core.visualizer import WarehouseVisualizer
+from loguru import logger
+
+# Garante UTF-8 no console do Windows para emojis
+if sys.platform == "win32":
+    try:
+        sys.stdout.reconfigure(encoding="utf-8")  # type: ignore[attr-defined]
+    except Exception:
+        pass
+
+# Garante que a pasta src está no sys.path
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "src"))
+
+
+def is_port_in_use(port: int, host: str = "127.0.0.1") -> bool:
+    """Verifica se uma porta já está ocupada por outro processo."""
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        return s.connect_ex((host, port)) == 0
+
+
+def find_available_port(preferred_port: int = 8080) -> int:
+    """Retorna a porta preferencial ou uma alternativa livre (8080, 8001, etc.)."""
+    if not is_port_in_use(preferred_port):
+        return preferred_port
+
+    logger.warning(f"Porta {preferred_port} já está em uso por outro processo.")
+    for alt in [8080, 8081, 8001, 8002]:
+        if not is_port_in_use(alt):
+            logger.info(f"Porta alternativa disponível selecionada: {alt}")
+            return alt
+
+    return preferred_port
 
 
 def main() -> None:
-    # Garante que o diretório 'src' está no path
-    sys.path.append(os.path.join(os.getcwd(), "src"))
+    port = find_available_port(preferred_port=8080)
 
-    optimizer = WarehouseRouteOptimizer(
-        locations=LOCATIONS,
-        rewards_matrix=BASE_REWARDS_MATRIX,
-        gamma=settings.gamma,
-        alpha=settings.alpha,
+    print("\n" + "=" * 60)
+    print("      🚀 NEXUSFLEET AMR ORCHESTRATOR & DIGITAL TWIN v2.0")
+    print("=" * 60)
+    print(f"  🎮 Plataforma / Digital Twin: http://localhost:{port}")
+    print(f"  📑 Scalar API Docs:          http://localhost:{port}/docs")
+    print(f"  ⚡ WebSocket Telemetry:       ws://localhost:{port}/ws/telemetry")
+    print("=" * 60 + "\n")
+
+    uvicorn.run(
+        "warehouse_routing.api.main:app",
+        host="127.0.0.1",
+        port=port,
+        reload=True,
     )
-
-    optimizer.load_model(settings.model_save_path)
-
-    print("\n" + "=" * 45)
-    print("      WAREHOUSE ROUTING SYSTEM v1.0")
-    print("=" * 45)
-    print(" 1. [LOCAL] Visualizar Mapa (Janela)")
-    print(" 2. [LOCAL] Visualizar Inteligência (Janela)")
-    print(" 3. [SERVER] Iniciar API Production")
-    print(" 4. [SAIR] Encerrar")
-    print("=" * 45)
-
-    choice = input("\nSelecione uma opção: ")
-
-    if choice == "1":
-        WarehouseVisualizer.plot_warehouse_graph(BASE_REWARDS_MATRIX, LOCATIONS)
-        main()
-    elif choice == "2":
-        target = input("Destino (Padrão 'G'): ").upper() or "G"
-        q_table = optimizer.train(target)
-        WarehouseVisualizer.plot_q_table(q_table, LOCATIONS, f"Q-Table para {target}")
-        main()
-    elif choice == "3":
-        uvicorn.run("warehouse_routing.api.main:app", host="127.0.0.1", port=8000, reload=True)
-    elif choice == "4":
-        sys.exit(0)
 
 
 if __name__ == "__main__":

@@ -1,171 +1,170 @@
-from __future__ import annotations
-
-import sys
-import time
+import asyncio
+import os
 from contextlib import asynccontextmanager
-from pathlib import Path
-from typing import TYPE_CHECKING, AsyncGenerator
+from typing import AsyncGenerator
 
-from asgi_correlation_id import CorrelationIdMiddleware, correlation_id
-from fastapi import FastAPI, Request, status
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.staticfiles import StaticFiles
 from loguru import logger
 
-# ✅ Importação condicional para evitar ImportError em runtime (Docker/Produção)
-if TYPE_CHECKING:
-    from loguru import Record
-
-from warehouse_routing.api.schemas import PathUpdateRequest, RouteRequest, RouteResponse
-from warehouse_routing.core.config import BASE_REWARDS_MATRIX, LOCATIONS, settings
-from warehouse_routing.core.q_learning import WarehouseRouteOptimizer
-from warehouse_routing.core.visualizer import WarehouseVisualizer
-
-# =============================================================================
-# CONFIGURAÇÃO DE LOGS (LOGURU + CORRELATION ID)
-# =============================================================================
-LOG_FORMAT = (
-    "<green>{time:YYYY-MM-DD HH:mm:ss.SSS}</green> | "
-    "<level>{level: <8}</level> | "
-    "[ID: {extra[request_id]}] - <level>{message}</level>"
+from warehouse_routing.api.routes_analytics import (
+    router as analytics_router,
 )
-
-logger.remove()
-logger.add(sys.stdout, format=LOG_FORMAT, level="INFO")
-
-
-def inject_correlation_id(record: Record) -> None:
-    """Injeta o ID de correlação em cada linha de log para rastreabilidade total."""
-    record["extra"]["request_id"] = correlation_id.get() or "system"
-
-
-logger.configure(patcher=inject_correlation_id)
-
-# =============================================================================
-# INICIALIZAÇÃO DOS COMPONENTES CORE
-# =============================================================================
-optimizer = WarehouseRouteOptimizer(
-    locations=LOCATIONS,
-    rewards_matrix=BASE_REWARDS_MATRIX,
-    gamma=settings.gamma,
-    alpha=settings.alpha,
+from warehouse_routing.api.routes_analytics import (
+    set_orchestrator_instance as set_analytics_orch,
 )
+from warehouse_routing.api.routes_chaos import (
+    router as chaos_router,
+)
+from warehouse_routing.api.routes_chaos import (
+    set_orchestrator_instance as set_chaos_orch,
+)
+from warehouse_routing.api.routes_copilot import router as copilot_router
+from warehouse_routing.api.routes_fleet import (
+    router as fleet_router,
+)
+from warehouse_routing.api.routes_fleet import (
+    set_orchestrator_instance as set_fleet_orch,
+)
+from warehouse_routing.api.routes_layout import (
+    router as layout_router,
+)
+from warehouse_routing.api.routes_layout import (
+    set_orchestrator_instance as set_layout_orch,
+)
+from warehouse_routing.api.scalar_docs import setup_scalar_docs
+from warehouse_routing.api.websocket_hub import WebSocketTelemetryHub
+from warehouse_routing.copilot.guardrails import set_orchestrator_instance as set_guardrails_orch
+from warehouse_routing.copilot.tools import set_orchestrator_instance as set_tools_orch
+from warehouse_routing.core.fleet_orchestrator import FleetOrchestrator
+from warehouse_routing.core.grid import WarehouseGrid
 
-visualizer = WarehouseVisualizer()
+# Instâncias globais gerenciadas no ciclo de vida
+orchestrator: FleetOrchestrator = None  # type: ignore
+ws_hub: WebSocketTelemetryHub = None  # type: ignore
+simulation_task: asyncio.Task = None  # type: ignore
+
+
+async def simulation_loop() -> None:
+    """
+    Loop assíncrono em background que executa os passos da simulação física
+    e transmite os deltas de telemetria via WebSocket a 20 Hz (a cada 50ms).
+    """
+    logger.info("Simulation Loop iniciado em background.")
+    try:
+        while True:
+            if orchestrator and not orchestrator.is_paused:
+                orchestrator.step()
+                if ws_hub and ws_hub.active_connections:
+                    payload = orchestrator.get_telemetry_payload()
+                    await ws_hub.broadcast(payload)
+
+            # Intervalo suave para percepção humana e interpolação fluida (0.45s por tick)
+            speed = orchestrator.simulation_speed if orchestrator else 1.0
+            delay = max(0.1, 0.45 / speed)
+            await asyncio.sleep(delay)
+    except asyncio.CancelledError:
+        logger.info("Simulation Loop cancelado com sucesso.")
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
-    """Gerencia o startup e shutdown da API de forma resiliente."""
-    logger.info("🚀 Iniciando API Warehouse Optimizer...")
+    """Ciclo de vida do FastAPI: inicializa o motor de robótica e a simulação."""
+    global orchestrator, ws_hub, simulation_task
 
-    # ✅ Uso de Pathlib para evitar WinError 3 no Windows
-    model_path = Path(settings.model_save_path)
-    if model_path.parent != Path("."):
-        model_path.parent.mkdir(parents=True, exist_ok=True)
+    logger.info("Inicializando NexusFleet AMR Orchestrator...")
+    grid = WarehouseGrid.create_preset_mega_hub()
+    orchestrator = FleetOrchestrator(grid=grid, num_amrs=8)
+    ws_hub = WebSocketTelemetryHub(orchestrator=orchestrator)
 
-    # Tenta carregar o modelo persistido (Cold Start Resilience)
-    if model_path.exists():
-        try:
-            optimizer.load_model(str(model_path))
-            logger.info(f"📂 Modelo de IA carregado com sucesso de: {model_path}")
-        except Exception as e:
-            logger.error(f"❌ Falha ao carregar modelo existente: {e}")
-    else:
-        logger.warning(f"⚠️ Modelo não encontrado em {model_path}. Iniciando do zero.")
+    # Injeta a referência única do orquestrador nos módulos
+    set_layout_orch(orchestrator)
+    set_analytics_orch(orchestrator)
+    set_fleet_orch(orchestrator)
+    set_tools_orch(orchestrator)
+    set_guardrails_orch(orchestrator)
+    set_chaos_orch(orchestrator)
+
+    # Dispara a simulação contínua
+    simulation_task = asyncio.create_task(simulation_loop())
 
     yield
 
-    # Persiste o conhecimento acumulado ao desligar
-    try:
-        optimizer.save_model(str(model_path))
-        logger.info("💾 Estado da Q-Table persistido com sucesso antes do shutdown.")
-    except Exception as e:
-        logger.error(f"❌ Erro ao salvar modelo no shutdown: {e}")
+    # Encerramento suave
+    logger.info("Encerrando NexusFleet AMR Orchestrator...")
+    if simulation_task:
+        simulation_task.cancel()
+        try:
+            await simulation_task
+        except asyncio.CancelledError:
+            pass
 
 
-# =============================================================================
-# CONFIGURAÇÃO DO APP FASTAPI
-# =============================================================================
+# Instância principal do FastAPI (com docs_url=None para obrigar o uso do Scalar)
 app = FastAPI(
-    title="AI Warehouse Optimizer",
-    version="0.1.0",
+    title="NexusFleet AMR Orchestrator",
+    description="Plataforma de Coordenação de Robôs Móveis Autônomos com Space-Time MAPF, Digital Twin e Copiloto de IA.",
+    version="2.0.0",
     lifespan=lifespan,
+    docs_url=None,  # Desativa Swagger tradicional
+    redoc_url=None,
 )
 
-app.add_middleware(CorrelationIdMiddleware)
-
+# Configuração de CORS permissivo para dev e produção
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
-    expose_headers=["X-Correlation-ID"],
 )
 
+# Configuração da documentação viva em Scalar
+setup_scalar_docs(app)
 
-@app.middleware("http")
-async def add_process_time_header(request: Request, call_next):
-    """Middleware de performance para medir latência de processamento."""
-    start_time = time.perf_counter()
-    response = await call_next(request)
-    process_time = time.perf_counter() - start_time
-    response.headers["X-Process-Time-Ms"] = str(round(process_time * 1000, 2))
-    return response
-
-
-# =============================================================================
-# ENDPOINTS DA API
-# =============================================================================
+# Registro dos Routers da API
+app.include_router(layout_router)
+app.include_router(analytics_router)
+app.include_router(fleet_router)
+app.include_router(chaos_router)
+app.include_router(copilot_router)
 
 
-@app.post("/api/v1/routes", response_model=RouteResponse)
-async def calculate_route(request: RouteRequest):
-    """Calcula a rota ótima usando a lógica do Optimizer."""
-    logger.info(f"Calculando rota: {request.start} -> {request.end}")
+@app.get("/health", tags=["System"])
+def health_check():
+    """Endpoint de verificação de integridade do container."""
+    return {
+        "status": "healthy",
+        "service": "NexusFleet AMR Engine",
+        "version": "2.0.0",
+        "amrs_active": len(orchestrator.amrs) if orchestrator else 0,
+    }
 
+
+@app.websocket("/ws/telemetry")
+async def websocket_telemetry_endpoint(websocket: WebSocket):
+    """Canal WebSocket de telemetria da frota e recebimento de comandos do frontend."""
+    if ws_hub is None:
+        await websocket.close(code=1013)
+        return
+
+    await ws_hub.connect(websocket)
     try:
-        if request.intermediary:
-            route = optimizer.get_route_with_intermediary(
-                request.start, request.intermediary, request.end
-            )
-        else:
-            route = optimizer.get_route(request.start, request.end)
-
-        return RouteResponse(route=route, total_steps=len(route))
-    except ValueError as e:
-        logger.warning(f"Requisição inválida: {e}")
-        return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST, content={"detail": str(e)})
+        while True:
+            data = await websocket.receive_text()
+            await ws_hub.handle_client_message(websocket, data)
+    except WebSocketDisconnect:
+        ws_hub.disconnect(websocket)
+    except Exception as e:
+        logger.error(f"Erro no WebSocket: {e}")
+        ws_hub.disconnect(websocket)
 
 
-@app.get("/api/v1/visualize/graph")
-async def get_graph():
-    """Retorna a imagem da topologia do armazém."""
-    img_bytes = visualizer.get_graph_image(BASE_REWARDS_MATRIX, LOCATIONS)
-    return StreamingResponse(img_bytes, media_type="image/png")
-
-
-@app.get("/api/v1/visualize/q-table/{target}")
-async def get_q_table_heatmap(target: str):
-    """Gera um heatmap da Q-Table para um destino específico."""
-    try:
-        q_table = optimizer.train(target)
-        img_bytes = visualizer.get_q_table_image(
-            q_table, LOCATIONS, f"Q-Table para Destino: {target}"
-        )
-        return StreamingResponse(img_bytes, media_type="image/png")
-    except ValueError as e:
-        return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST, content={"detail": str(e)})
-
-
-@app.patch("/api/v1/warehouse/path")
-async def update_path(request: PathUpdateRequest):
-    """Permite bloquear ou liberar corredores dinamicamente."""
-    optimizer.update_path(request.location_a, request.location_b, request.is_open)
-    logger.info(f"Caminho {request.location_a}-{request.location_b} atualizado.")
-    return {"message": "Topologia atualizada com sucesso."}
-
-
-@app.get("/health")
-async def health_check():
-    return {"status": "healthy", "timestamp": time.time()}
+# Montagem dos arquivos estáticos do frontend (se compilados)
+frontend_dist = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))), "frontend", "dist"
+)
+if os.path.exists(frontend_dist):
+    logger.info(f"Montando arquivos estáticos do frontend a partir de: {frontend_dist}")
+    app.mount("/", StaticFiles(directory=frontend_dist, html=True), name="frontend")

@@ -6,19 +6,20 @@ authors = [{ name = "Henrique Botelho Gomes" }]
 requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.110.0",
-    "uvicorn>=0.27.0",
+    "uvicorn[standard]>=0.27.0",
     "pydantic>=2.6.0",
     "pydantic-settings>=2.2.1",
     "loguru>=0.7.2",
     "numpy>=1.26.0",
     "networkx>=3.2.0",
-    "matplotlib>=3.8.0",
-    "seaborn>=0.13.0",
     "joblib>=1.3.0",
     "requests>=2.31.0",
     "httpx>=0.27.0",
     "asgi-correlation-id>=4.3.0",
-    "streamlit>=1.32.0",
+    "websockets>=12.0",
+    "scalar-fastapi>=1.0.3",
+    "google-genai>=0.1.1",
+    "langfuse>=2.0.0",
 ]
 
 # ✅ Novo padrão do uv para dependências de desenvolvimento
@@ -39,6 +40,7 @@ disallow_untyped_defs = false
 disallow_incomplete_defs = false
 check_untyped_defs = true
 ignore_missing_imports = true
+exclude = ["\\.venv", "frontend", "build", "dist"]
 
 [tool.ruff]
 line-length = 100
@@ -49,6 +51,7 @@ line-ending = "lf" # Força o padrão Linux/Unix (evita brigas no Windows)
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B"] # Erros, Pyflakes, Isort (imports), Bugbear
+ignore = ["E501"] # Permite linhas longas em docstrings/prompts
 
 [tool.pytest.ini_options]
 # Adiciona a pasta src ao path de execução dos testes

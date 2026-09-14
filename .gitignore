@@ -20,3 +20,10 @@ __pycache__/
 *.joblib
 .env
 .coverage
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+
+# AgentBridge e Caches
+.agentbridge/
