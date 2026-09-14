@@ -79,3 +79,28 @@ def scale_fleet(payload: ScaleFleetRequest) -> Dict[str, Any]:
         "success": True,
         **res,
     }
+
+
+@router.get("/logs", summary="Obter histórico de logs de todos os robôs da frota")
+def get_fleet_logs(limit: int = 50) -> Dict[str, Any]:
+    """Retorna os eventos e logs operacionais de cada robô AMR."""
+    if _orchestrator_ref is None:
+        raise HTTPException(status_code=503, detail="Simulador não inicializado")
+    logs_by_amr = {}
+    for amr_id, amr in _orchestrator_ref.amrs.items():
+        logs_by_amr[amr_id] = [log.model_dump() for log in amr.logs[-limit:]]
+    return {
+        "total_amrs": len(logs_by_amr),
+        "logs": logs_by_amr,
+    }
+
+
+@router.post("/rescue/{amr_id}", summary="Destravar robô forçando Self-Healing")
+def rescue_amr(amr_id: str) -> Dict[str, Any]:
+    """Executa o Self-Healing forçado em um robô travado ou em deadlock."""
+    if _orchestrator_ref is None:
+        raise HTTPException(status_code=503, detail="Simulador não inicializado")
+    res = _orchestrator_ref.rescue_amr(amr_id)
+    if not res.get("success"):
+        raise HTTPException(status_code=404, detail=res.get("message"))
+    return res

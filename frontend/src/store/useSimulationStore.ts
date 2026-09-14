@@ -23,6 +23,13 @@ export interface WarehouseLayout {
   obstacles: { x: number; y: number }[];
 }
 
+export interface AMRLogEntry {
+  timestamp: string;
+  tick: number;
+  level: "INFO" | "ACTION" | "WARN" | "ERROR" | "SUCCESS";
+  message: string;
+}
+
 export interface AMRTelemetry {
   id: string;
   x: number;
@@ -36,6 +43,9 @@ export interface AMRTelemetry {
   carrying_pod_id: string | null;
   current_mission_id: string | null;
   planned_path: { x: number; y: number }[];
+  is_crashed?: boolean;
+  crash_reason?: string | null;
+  recent_logs?: AMRLogEntry[];
 }
 
 export interface SimulationMetrics {
@@ -143,6 +153,13 @@ interface SimulationStore {
   setFleetSize: (count: number) => void;
   clearAllBlocks: () => void;
 
+  // Logs e Inspeção da Frota
+  isLogsModalOpen: boolean;
+  setIsLogsModalOpen: (open: boolean) => void;
+  logsFilterAmrId: string | null;
+  setLogsFilterAmrId: (id: string | null) => void;
+  rescueAmr: (amrId: string) => Promise<void>;
+
   // Métodos de Controle
   updateFromTelemetry: (data: any) => void;
 }
@@ -150,6 +167,19 @@ interface SimulationStore {
 export const useSimulationStore = create<SimulationStore>((set, get) => ({
   wsStatus: "connecting",
   setWsStatus: (status) => set({ wsStatus: status }),
+
+  isLogsModalOpen: false,
+  setIsLogsModalOpen: (isLogsModalOpen) => set({ isLogsModalOpen }),
+  logsFilterAmrId: null,
+  setLogsFilterAmrId: (logsFilterAmrId) => set({ logsFilterAmrId }),
+
+  rescueAmr: async (amrId: string) => {
+    try {
+      await fetch(`/api/v1/fleet/rescue/${amrId}`, { method: "POST" });
+    } catch (e) {
+      console.error("Erro ao resgatar robô:", e);
+    }
+  },
 
   layout: null,
   setLayout: (layout) => set({ layout }),

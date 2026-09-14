@@ -80,4 +80,9 @@ export const en = {
   amr_pod: "Payload (Pod)",
   amr_mission: "Active Mission",
   amr_target: "Target Coordinate",
+  amr_rescue: "Rescue AMR (Self-Healing)",
+  amr_view_logs: "View AMR Logs",
+
+  // Fleet Logs Terminal
+  nav_logs: "Fleet Logs",
 };

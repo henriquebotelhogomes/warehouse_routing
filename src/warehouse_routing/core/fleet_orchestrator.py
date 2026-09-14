@@ -71,6 +71,7 @@ class FleetOrchestrator:
 
     def _initialize_amrs(self, count: int) -> None:
         """Distribui os robôs pelas docas de recarga disponíveis."""
+        self.amrs.clear()
         docks = list(self.grid.charging_docks)
         if not docks:
             docks = [(0, 0)]
@@ -325,6 +326,12 @@ class FleetOrchestrator:
                 amr.set_path(path)
                 amr.state = AMRState.MOVING_TO_POD
                 self.reservations.reserve_path(amr.id, path, start_time=self.current_tick)
+                amr.stuck_ticks = 0
+                amr.log_event(
+                    f"Despachado para coletar {mission.target_pod_id} em {mission.target_pod_pos} ({len(path)} passos).",
+                    level="ACTION",
+                    tick=self.current_tick,
+                )
                 logger.info(
                     f"{amr.id} despachado para {mission.target_pod_id} ({len(path)} passos)"
                 )
@@ -336,14 +343,50 @@ class FleetOrchestrator:
         """
         Gerencia o planejamento de rotas nas transições de estado dos robôs
         (Ex: Pod levantado -> Rota até estação de picking -> Devolver pod).
+        Possui guardrails de auto-recuperação (Self-Healing) e re-alocação dinâmica.
         """
         for amr in self.amrs.values():
+            # 0. Verificação de sanidade geométrica (limites do grid após troca de layout)
+            if not self.grid.is_within_bounds(amr.grid_x, amr.grid_y):
+                fallback_pos = (
+                    next(iter(self.grid.charging_docks)) if self.grid.charging_docks else (0, 0)
+                )
+                amr.grid_x, amr.grid_y = fallback_pos
+                amr.x, amr.y = float(fallback_pos[0]), float(fallback_pos[1])
+                amr.path = []
+                amr.path_step_idx = 0
+                amr.state = AMRState.IDLE
+                amr.carrying_pod_id = None
+                amr.target_pod_id = None
+                amr.current_mission_id = None
+                amr.log_event(
+                    "Posição corrigida para limites do novo galpão.",
+                    level="WARN",
+                    tick=self.current_tick,
+                )
+
             # 1. Acabou de levantar o pod -> Rota para Estação de Picking
-            if (
-                amr.state == AMRState.TRANSITING_TO_PICKING
-                and amr.target_picking_station
-                and amr.has_completed_path
-            ):
+            if amr.state == AMRState.TRANSITING_TO_PICKING and amr.has_completed_path:
+                # Se a estação de picking não for válida no layout atual, reatribui para a mais próxima
+                if (
+                    not amr.target_picking_station
+                    or amr.target_picking_station not in self.grid.picking_stations
+                ):
+                    if self.grid.picking_stations:
+                        amr.target_picking_station = min(
+                            self.grid.picking_stations,
+                            key=lambda s: abs(s[0] - amr.grid_x) + abs(s[1] - amr.grid_y),
+                        )
+                        amr.log_event(
+                            f"Reatribuída bancada de picking válida: {amr.target_picking_station}.",
+                            level="WARN",
+                            tick=self.current_tick,
+                        )
+                    else:
+                        amr.state = AMRState.IDLE
+                        amr.carrying_pod_id = None
+                        continue
+
                 start_pos = (amr.grid_x, amr.grid_y)
                 path = self.path_finder.find_path(
                     agent_id=amr.id,
@@ -354,6 +397,54 @@ class FleetOrchestrator:
                 if path:
                     amr.set_path(path)
                     self.reservations.reserve_path(amr.id, path, start_time=self.current_tick)
+                    amr.stuck_ticks = 0
+                    amr.log_event(
+                        f"Rota traçada até bancada de picking {amr.target_picking_station} ({len(path)} passos).",
+                        level="INFO",
+                        tick=self.current_tick,
+                    )
+                else:
+                    amr.stuck_ticks += 1
+                    if amr.stuck_ticks % 3 == 0:
+                        amr.log_event(
+                            f"Rota bloqueada/conflito. Tentando rota alternativa ({amr.stuck_ticks} tentativas).",
+                            level="WARN",
+                            tick=self.current_tick,
+                        )
+                        # Tenta outra estação de picking se houver
+                        for alt_station in self.grid.picking_stations:
+                            if alt_station != amr.target_picking_station:
+                                alt_path = self.path_finder.find_path(
+                                    agent_id=amr.id,
+                                    start=start_pos,
+                                    target=alt_station,
+                                    start_time=self.current_tick,
+                                )
+                                if alt_path:
+                                    amr.target_picking_station = alt_station
+                                    amr.set_path(alt_path)
+                                    self.reservations.reserve_path(
+                                        amr.id, alt_path, start_time=self.current_tick
+                                    )
+                                    amr.stuck_ticks = 0
+                                    amr.log_event(
+                                        f"Rota traçada para bancada alternativa {alt_station} ({len(alt_path)} passos).",
+                                        level="SUCCESS",
+                                        tick=self.current_tick,
+                                    )
+                                    break
+                    if amr.stuck_ticks > 8:
+                        # Auto-recuperação (Self-healing): cancela missão e libera robô
+                        amr.log_event(
+                            "Deadlock irrecuperável detectado. Self-healing cancelou a missão e liberou o robô.",
+                            level="ERROR",
+                            tick=self.current_tick,
+                        )
+                        amr.state = AMRState.IDLE
+                        amr.carrying_pod_id = None
+                        amr.target_pod_id = None
+                        amr.current_mission_id = None
+                        amr.stuck_ticks = 0
 
             # 2. Concluiu separação na bancada -> Rota para devolver pod na posição original
             elif (
@@ -361,6 +452,18 @@ class FleetOrchestrator:
                 and amr.action_wait_ticks == 0
                 and amr.target_pod_pos
             ):
+                # Se a posição da prateleira não for válida no layout atual
+                if amr.target_pod_pos not in self.grid.pod_positions:
+                    if self.grid.pod_positions:
+                        amr.target_pod_pos = min(
+                            self.grid.pod_positions.keys(),
+                            key=lambda p: abs(p[0] - amr.grid_x) + abs(p[1] - amr.grid_y),
+                        )
+                    else:
+                        amr.state = AMRState.IDLE
+                        amr.carrying_pod_id = None
+                        continue
+
                 start_pos = (amr.grid_x, amr.grid_y)
                 path = self.path_finder.find_path(
                     agent_id=amr.id,
@@ -372,6 +475,12 @@ class FleetOrchestrator:
                     amr.state = AMRState.RETURNING_POD
                     amr.set_path(path)
                     self.reservations.reserve_path(amr.id, path, start_time=self.current_tick)
+                    amr.stuck_ticks = 0
+                    amr.log_event(
+                        f"Retornando prateleira {amr.target_pod_id} para {amr.target_pod_pos} ({len(path)} passos).",
+                        level="INFO",
+                        tick=self.current_tick,
+                    )
 
                     # Registra ordem como concluída
                     self.completed_orders.append(
@@ -401,6 +510,7 @@ class FleetOrchestrator:
                 if path:
                     amr.set_path(path)
                     self.reservations.reserve_path(amr.id, path, start_time=self.current_tick)
+                    amr.stuck_ticks = 0
 
             # 3. Ficou ocioso com bateria baixa -> Rota para doca de recarga
             elif (
@@ -637,4 +747,64 @@ class FleetOrchestrator:
             "is_resolved": True,
             "self_healing_applied": self_healing,
             "message": f"Incidente {incident_id} resolvido com sucesso.",
+        }
+
+    def rescue_amr(self, amr_id: str) -> Dict[str, Any]:
+        """
+        Executa Self-Healing forçado em um robô travado:
+        Limpa reservas, redefine alvos e recalcula nova rota ou restaura para IDLE seguro.
+        """
+        if amr_id not in self.amrs:
+            return {"success": False, "message": f"Robô {amr_id} não encontrado."}
+
+        amr = self.amrs[amr_id]
+        self.reservations.clear_agent(amr.id)
+        amr.is_crashed = False
+        amr.crash_reason = None
+        amr.stuck_ticks = 0
+
+        # Se estava com pod e estação de picking válida, tenta recalcular rota direta
+        if amr.carrying_pod_id and self.grid.picking_stations:
+            station = min(
+                self.grid.picking_stations,
+                key=lambda s: abs(s[0] - amr.grid_x) + abs(s[1] - amr.grid_y),
+            )
+            amr.target_picking_station = station
+            path = self.path_finder.find_path(
+                agent_id=amr.id,
+                start=(amr.grid_x, amr.grid_y),
+                target=station,
+                start_time=self.current_tick,
+            )
+            if path:
+                amr.state = AMRState.TRANSITING_TO_PICKING
+                amr.set_path(path)
+                self.reservations.reserve_path(amr.id, path, start_time=self.current_tick)
+                amr.log_event(
+                    f"Robô destravado com sucesso! Nova rota traçada até a bancada {station}.",
+                    level="SUCCESS",
+                    tick=self.current_tick,
+                )
+                return {
+                    "success": True,
+                    "action": "reroute",
+                    "message": f"Robô {amr_id} destravado com sucesso e encaminhado para bancada {station}.",
+                }
+
+        # Fallback: restaura para IDLE seguro
+        amr.state = AMRState.IDLE
+        amr.carrying_pod_id = None
+        amr.target_pod_id = None
+        amr.current_mission_id = None
+        amr.path = []
+        amr.path_step_idx = 0
+        amr.log_event(
+            "Robô reiniciado e restaurado para estado IDLE seguro via Self-Healing.",
+            level="SUCCESS",
+            tick=self.current_tick,
+        )
+        return {
+            "success": True,
+            "action": "reset_idle",
+            "message": f"Robô {amr_id} reiniciado para IDLE seguro.",
         }

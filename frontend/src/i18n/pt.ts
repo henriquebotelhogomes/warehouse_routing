@@ -80,4 +80,9 @@ export const pt = {
   amr_pod: "Carga Acoplada",
   amr_mission: "Missão Ativa",
   amr_target: "Destino Alvo",
+  amr_rescue: "Destravar Robô (Self-Healing)",
+  amr_view_logs: "Ver Logs do Robô",
+
+  // Fleet Logs Terminal
+  nav_logs: "Logs da Frota",
 };

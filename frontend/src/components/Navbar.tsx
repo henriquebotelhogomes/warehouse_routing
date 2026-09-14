@@ -7,6 +7,7 @@ import {
   Radio,
   AlertTriangle,
   Globe,
+  Terminal,
 } from "lucide-react";
 import { useSimulationStore } from "../store/useSimulationStore";
 import { useTranslation } from "../i18n/useTranslation";
@@ -18,6 +19,8 @@ export const Navbar: React.FC = () => {
     wsStatus,
     emergencyStop,
     sendWebSocketMessage,
+    setIsLogsModalOpen,
+    setLogsFilterAmrId,
   } = useSimulationStore();
   const { t, language, setLanguage } = useTranslation();
 
@@ -103,6 +106,19 @@ export const Navbar: React.FC = () => {
         >
           <AlertTriangle className="w-4 h-4" />
           {emergencyStop ? t("sim_emergency_active") : t("sim_emergency_stop")}
+        </button>
+
+        {/* Fleet Logs Terminal Button */}
+        <button
+          onClick={() => {
+            setLogsFilterAmrId(null);
+            setIsLogsModalOpen(true);
+          }}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800 text-slate-300 hover:text-cyan-400 hover:bg-slate-700 transition-all border border-slate-700 shadow-sm"
+          title="Abrir Central de Logs e Auditoria da Frota"
+        >
+          <Terminal className="w-3.5 h-3.5 text-cyan-400" />
+          <span>{t("nav_logs")}</span>
         </button>
 
         {/* Scalar Docs Link */}

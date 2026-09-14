@@ -89,7 +89,8 @@ def load_layout(layout: WarehouseLayout) -> Dict[str, Any]:
     _orchestrator_ref.current_tick = 0
     _orchestrator_ref.completed_orders.clear()
     _orchestrator_ref.pending_orders.clear()
-    _orchestrator_ref._initialize_amrs(count=min(12, max(4, len(new_grid.charging_docks))))
+    _orchestrator_ref.amrs.clear()
+    _orchestrator_ref._initialize_amrs(count=min(12, max(2, len(new_grid.charging_docks))))
     _orchestrator_ref._generate_initial_orders(count=20)
     _orchestrator_ref.flight_recorder.clear()
 

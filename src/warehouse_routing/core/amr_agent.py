@@ -1,3 +1,4 @@
+import time
 from enum import Enum
 from typing import List, Optional, Tuple
 
@@ -19,6 +20,13 @@ class AMRState(str, Enum):
     CRASHED = "CRASHED"
 
 
+class AMRLogEntry(BaseModel):
+    timestamp: str
+    tick: int
+    level: str  # "INFO", "ACTION", "WARN", "ERROR", "SUCCESS"
+    message: str
+
+
 class AMRTelemetry(BaseModel):
     id: str
     x: float
@@ -34,6 +42,7 @@ class AMRTelemetry(BaseModel):
     planned_path: List[CellCoordinate] = Field(default_factory=list)
     is_crashed: bool = False
     crash_reason: Optional[str] = None
+    recent_logs: List[AMRLogEntry] = Field(default_factory=list)
 
 
 class AMRAgent:
@@ -74,6 +83,19 @@ class AMRAgent:
         self.target_pod_pos: Optional[Tuple[int, int]] = None
         self.target_picking_station: Optional[Tuple[int, int]] = None
         self.assigned_dock_pos: Tuple[int, int] = (initial_x, initial_y)
+
+        # Buffer circular de logs do robô
+        self.logs: List[AMRLogEntry] = []
+        self.stuck_ticks: int = 0
+        self.log_event("Robô inicializado e posicionado na doca.", level="INFO")
+
+    def log_event(self, message: str, level: str = "INFO", tick: int = 0) -> None:
+        """Registra um evento operacional no log local do robô."""
+        now = time.strftime("%H:%M:%S")
+        entry = AMRLogEntry(timestamp=now, tick=tick, level=level, message=message)
+        self.logs.append(entry)
+        if len(self.logs) > 60:
+            self.logs.pop(0)
 
     def is_battery_critical(self) -> bool:
         """Indica se o nível de bateria requer recarga urgente (< 20%)."""
@@ -154,23 +176,35 @@ class AMRAgent:
         self.path_step_idx = 0
 
         if self.state == AMRState.MOVING_TO_POD:
-            # Chegou embaixo da prateleira -> Inicia acoplamento (LIFTING)
             self.state = AMRState.LIFTING_POD
-            self.action_wait_ticks = 2  # 2 ticks para suspender o pod
+            self.action_wait_ticks = 2
+            self.log_event(
+                f"Chegou à prateleira {self.target_pod_id}. Iniciando acoplamento mecânico (Lifting).",
+                level="ACTION",
+            )
 
         elif self.state == AMRState.TRANSITING_TO_PICKING:
-            # Chegou na bancada de conferência -> Inicia separação de itens
             self.state = AMRState.AT_PICKING_STATION
-            self.action_wait_ticks = 3  # 3 ticks para o operador separar o item
+            self.action_wait_ticks = 3
+            self.log_event(
+                f"Chegou à bancada {self.target_picking_station}. Aguardando separação do operador.",
+                level="ACTION",
+            )
 
         elif self.state == AMRState.RETURNING_POD:
-            # Chegou de volta na vaga da prateleira -> Inicia desacoplamento (LOWERING)
             self.state = AMRState.LOWERING_POD
-            self.action_wait_ticks = 2  # 2 ticks para descer o pod
+            self.action_wait_ticks = 2
+            self.log_event(
+                f"Chegou ao endereço original do pod {self.target_pod_id}. Iniciando desacoplamento (Lowering).",
+                level="ACTION",
+            )
 
         elif self.state == AMRState.IDLE and self.is_battery_critical():
-            # Chegou na doca de recarga
             self.state = AMRState.CHARGING
+            self.log_event(
+                "Chegou à doca de recarga. Iniciando carregamento rápido da bateria.",
+                level="ACTION",
+            )
 
     def _handle_action_completion(self) -> None:
         """Processa o término de uma ação mecânica."""
@@ -180,15 +214,27 @@ class AMRAgent:
         if self.state == AMRState.LIFTING_POD:
             self.carrying_pod_id = self.target_pod_id
             self.state = AMRState.TRANSITING_TO_PICKING
+            self.log_event(
+                f"Prateleira {self.carrying_pod_id} acoplada com sucesso. Rota até conferência.",
+                level="SUCCESS",
+            )
 
         elif self.state == AMRState.LOWERING_POD:
+            order_completed = self.current_mission_id
             self.carrying_pod_id = None
             self.target_pod_id = None
             self.current_mission_id = None
+            self.log_event(
+                f"Prateleira desacoplada na vaga. Ordem {order_completed or ''} concluída com sucesso!",
+                level="SUCCESS",
+            )
 
             # Avalia se deve ir para recarga ou ficar ocioso
             if self.is_battery_critical():
-                self.state = AMRState.IDLE  # O orquestrador planejará a rota até a doca
+                self.state = AMRState.IDLE
+                self.log_event(
+                    "Bateria baixa (<20%). Solicitando rota para doca de recarga.", level="WARN"
+                )
             else:
                 self.state = AMRState.IDLE
 
@@ -216,4 +262,5 @@ class AMRAgent:
             planned_path=planned,
             is_crashed=self.is_crashed,
             crash_reason=self.crash_reason,
+            recent_logs=list(self.logs[-20:]),
         )

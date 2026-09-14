@@ -6,6 +6,7 @@ import { LayoutStudio } from "./components/LayoutStudio";
 import { AnalyticsDashboard } from "./components/AnalyticsDashboard";
 import { CopilotDrawer } from "./components/CopilotDrawer";
 import { AMRDetailModal } from "./components/AMRDetailModal";
+import { FleetLogsModal } from "./components/FleetLogsModal";
 import { useSimulationStore } from "./store/useSimulationStore";
 
 export const App: React.FC = () => {
@@ -104,6 +105,9 @@ export const App: React.FC = () => {
 
         {/* Copiloto de IA Presente em Todas as Telas */}
         <CopilotDrawer />
+
+        {/* Central Modal de Logs da Frota */}
+        <FleetLogsModal />
       </main>
     </div>
   );

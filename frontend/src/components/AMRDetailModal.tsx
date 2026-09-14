@@ -1,12 +1,33 @@
-import React from "react";
-import { Bot, X, Battery, Package, Navigation, Target, Activity, Trash2 } from "lucide-react";
+import React, { useState } from "react";
+import {
+  Bot,
+  X,
+  Battery,
+  Package,
+  Navigation,
+  Target,
+  Activity,
+  Trash2,
+  Terminal,
+  Wrench,
+  RotateCcw,
+} from "lucide-react";
 import { useSimulationStore } from "../store/useSimulationStore";
 import { useTranslation } from "../i18n/useTranslation";
 import { getAmrColor } from "../utils/robotColors";
 
 export const AMRDetailModal: React.FC = () => {
-  const { selectedAmrId, setSelectedAmrId, amrs, removeAmr } = useSimulationStore();
+  const {
+    selectedAmrId,
+    setSelectedAmrId,
+    amrs,
+    removeAmr,
+    rescueAmr,
+    setIsLogsModalOpen,
+    setLogsFilterAmrId,
+  } = useSimulationStore();
   const { t, language } = useTranslation();
+  const [isRescuing, setIsRescuing] = useState(false);
 
   if (!selectedAmrId) return null;
 
@@ -129,17 +150,78 @@ export const AMRDetailModal: React.FC = () => {
           </span>
         </div>
 
-        {/* Botão de Descomissionar Robô */}
-        <button
-          onClick={() => {
-            removeAmr(amr.id);
-            setSelectedAmrId(null);
-          }}
-          className="w-full mt-2 py-2 px-3 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 flex items-center justify-center gap-2 text-xs font-semibold transition-all shadow-sm"
-        >
-          <Trash2 className="w-3.5 h-3.5" />
-          <span>{language === "pt" ? "Descomissionar Este Robô" : "Decommission This AMR"}</span>
-        </button>
+        {/* Prévia dos Últimos Logs do Robô */}
+        <div className="bg-slate-950 p-2.5 rounded-xl border border-slate-800/80 space-y-1.5">
+          <div className="flex items-center justify-between text-[11px] font-semibold text-slate-300">
+            <span className="flex items-center gap-1 text-cyan-400">
+              <Terminal className="w-3.5 h-3.5" />
+              Logs Recentes
+            </span>
+            <button
+              onClick={() => {
+                setLogsFilterAmrId(amr.id);
+                setIsLogsModalOpen(true);
+              }}
+              className="text-[10px] text-cyan-400 hover:text-cyan-300 underline"
+            >
+              Ver todos ({amr.recent_logs?.length || 0})
+            </button>
+          </div>
+          <div className="space-y-1 max-h-24 overflow-y-auto font-mono text-[10px] text-slate-400">
+            {(!amr.recent_logs || amr.recent_logs.length === 0) ? (
+              <p className="italic text-slate-600">Nenhum evento registrado ainda.</p>
+            ) : (
+              amr.recent_logs.slice(-3).reverse().map((log, idx) => (
+                <div key={idx} className="truncate flex items-start gap-1">
+                  <span className={`text-[9px] font-bold ${
+                    log.level === "ERROR" ? "text-red-400" :
+                    log.level === "WARN" ? "text-amber-400" :
+                    log.level === "SUCCESS" ? "text-emerald-400" : "text-cyan-400"
+                  }`}>
+                    [{log.level.substring(0, 4)}]
+                  </span>
+                  <span className="text-slate-300 truncate" title={log.message}>
+                    {log.message}
+                  </span>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+
+        {/* Botões de Ação Rápida */}
+        <div className="space-y-2 pt-1">
+          {/* Botão de Destravar Robô (Self-Healing) */}
+          <button
+            onClick={async () => {
+              setIsRescuing(true);
+              await rescueAmr(amr.id);
+              setTimeout(() => setIsRescuing(false), 1000);
+            }}
+            disabled={isRescuing}
+            className="w-full py-2 px-3 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/30 flex items-center justify-center gap-2 text-xs font-semibold transition-all shadow-sm disabled:opacity-50"
+            title="Recalcula rota ou libera travas lógicas deste AMR"
+          >
+            {isRescuing ? (
+              <RotateCcw className="w-3.5 h-3.5 animate-spin text-amber-400" />
+            ) : (
+              <Wrench className="w-3.5 h-3.5 text-amber-400" />
+            )}
+            <span>{isRescuing ? "Destravando Robô..." : (language === "pt" ? "Destravar Robô (Self-Healing)" : "Rescue AMR (Self-Healing)")}</span>
+          </button>
+
+          {/* Botão de Descomissionar Robô */}
+          <button
+            onClick={() => {
+              removeAmr(amr.id);
+              setSelectedAmrId(null);
+            }}
+            className="w-full py-1.5 px-3 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 flex items-center justify-center gap-2 text-[11px] font-semibold transition-all shadow-sm"
+          >
+            <Trash2 className="w-3 h-3" />
+            <span>{language === "pt" ? "Descomissionar Este Robô" : "Decommission This AMR"}</span>
+          </button>
+        </div>
       </div>
     </div>
   );
