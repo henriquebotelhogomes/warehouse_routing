@@ -14,8 +14,8 @@
 [![Type Checking: Mypy](https://img.shields.io/badge/Type%20Checking-Mypy%20Strict-blue.svg)](http://mypy-lang.org/)
 
 > **Status da Plataforma:** Produção Corporativa  
-> **Interface Interativa:** [https://nexusfleet-amr.a.run.app](https://nexusfleet-amr.a.run.app) *(ou [http://localhost:8000](http://localhost:8000))*  
-> **Documentação da API (Scalar):** [https://nexusfleet-amr.a.run.app/docs](https://nexusfleet-amr.a.run.app/docs) *(ou [http://localhost:8000/docs](http://localhost:8000/docs))*
+> **Interface Interativa:** [https://nexusfleet-amr-197215016090.us-central1.run.app](https://nexusfleet-amr-197215016090.us-central1.run.app) *(ou [http://localhost:8000](http://localhost:8000))*  
+> **Documentação da API (Scalar):** [https://nexusfleet-amr-197215016090.us-central1.run.app/docs](https://nexusfleet-amr-197215016090.us-central1.run.app/docs) *(ou [http://localhost:8000/docs](http://localhost:8000/docs))*
 
 <div align="center">
   <img src="screenshots/nexusfleet_demo.gif" alt="NexusFleet AMR Digital Twin Demo" width="100%" style="border-radius: 12px; box-shadow: 0 20px 40px rgba(0,0,0,0.4);" />
