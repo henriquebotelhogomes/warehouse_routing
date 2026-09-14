@@ -167,3 +167,56 @@ def test_chaos_api_endpoints(client: TestClient) -> None:
     )
     assert resolve_resp.status_code == 200
     assert resolve_resp.json()["success"] is True
+
+
+def test_copilot_expanded_intents(client: TestClient) -> None:
+    """Testa novos comandos em linguagem natural adicionados ao Copiloto."""
+    # 1. Consulta de logs com tolerância a typos ('logos')
+    logs_resp = client.post(
+        "/api/v1/copilot/chat",
+        json={"message": "exiba os logos do robo amr-01"},
+    )
+    assert logs_resp.status_code == 200
+    data_logs = logs_resp.json()
+    assert "AMR-01" in data_logs["reply"]
+    assert any(t["tool"] == "get_amr_logs" for t in data_logs["executed_tools"])
+
+    # 2. Resgate e Self-Healing de robô
+    rescue_resp = client.post(
+        "/api/v1/copilot/chat",
+        json={"message": "destravar o robô AMR-01"},
+    )
+    assert rescue_resp.status_code == 200
+    data_rescue = rescue_resp.json()
+    assert "Self-Healing" in data_rescue["reply"]
+    assert any(t["tool"] == "rescue_amr" for t in data_rescue["executed_tools"])
+
+    # 3. Métricas e Throughput
+    metrics_resp = client.post(
+        "/api/v1/copilot/chat",
+        json={"message": "qual o throughput e ordens entregues?"},
+    )
+    assert metrics_resp.status_code == 200
+    data_metrics = metrics_resp.json()
+    assert "Vazão Atual" in data_metrics["reply"]
+    assert any(t["tool"] == "get_warehouse_metrics" for t in data_metrics["executed_tools"])
+
+    # 4. Controle de simulação
+    sim_resp = client.post(
+        "/api/v1/copilot/chat",
+        json={"message": "pausar simulação"},
+    )
+    assert sim_resp.status_code == 200
+    data_sim = sim_resp.json()
+    assert "Controle de Simulação" in data_sim["reply"]
+    assert any(t["tool"] == "simulation_control" for t in data_sim["executed_tools"])
+
+    # 5. Localização e detalhes de robô
+    detail_resp = client.post(
+        "/api/v1/copilot/chat",
+        json={"message": "onde está o robô AMR-01?"},
+    )
+    assert detail_resp.status_code == 200
+    data_detail = detail_resp.json()
+    assert "Telemetria do Robô AMR-01" in data_detail["reply"]
+    assert any(t["tool"] == "get_amr_detail" for t in data_detail["executed_tools"])

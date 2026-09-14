@@ -577,7 +577,7 @@ def tool_get_warehouse_metrics() -> WarehouseMetricsOutput:
         success=True,
         throughput_per_hour=round(orch.get_throughput_per_hour(), 1),
         completed_orders=len(orch.completed_orders),
-        pending_orders=len(orch.orders),
+        pending_orders=len(orch.pending_orders),
         fleet_utilization_pct=round(utilization, 1),
         average_battery_pct=round(avg_bat, 1),
         active_incidents=len(orch.grid.dynamic_blocks),

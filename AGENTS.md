@@ -124,6 +124,88 @@ class ScaleFleetOutput(BaseModel):
     message: str
 ```
 
+### Tool 6: `get_amr_logs`
+* **Descrição:** Consulta o histórico recente de eventos e transições de estado FSM de um robô específico ou consolidado da frota.
+```python
+class GetAMRLogsInput(BaseModel):
+    amr_id: Optional[str] = Field(default=None, description="ID do robô (ex: 'AMR-03') ou None para toda a frota")
+    limit: int = Field(default=8, description="Número de eventos a recuperar")
+
+class GetAMRLogsOutput(BaseModel):
+    success: bool
+    amr_id: Optional[str]
+    logs: List[dict]
+    message: str
+```
+
+### Tool 7: `rescue_amr` (Self-Healing)
+* **Descrição:** Executa o protocolo de autocura em um robô com anomalia de navegação, limpando reservas expiradas e recalculando trajetória até a bancada mais próxima ou restaurando com segurança para `IDLE`.
+```python
+class RescueAMRInput(BaseModel):
+    amr_id: str = Field(description="ID do robô a resgatar (ex: 'AMR-02')")
+
+class RescueAMROutput(BaseModel):
+    success: bool
+    amr_id: str
+    action: str
+    message: str
+```
+
+### Tool 8: `get_amr_detail`
+* **Descrição:** Consulta detalhes precisos de telemetria de um robô: coordenadas $(X, Y)$, FSM, nível de bateria, pod acoplado, missão ativa e passos restantes.
+```python
+class GetAMRDetailInput(BaseModel):
+    amr_id: str = Field(description="ID do robô (ex: 'AMR-01')")
+
+class GetAMRDetailOutput(BaseModel):
+    success: bool
+    amr_id: str
+    position: Optional[dict]
+    state: str
+    battery_level: float
+    carrying_pod_id: Optional[str]
+    current_mission_id: Optional[str]
+    target: Optional[dict]
+    path_length_remaining: int
+    message: str
+```
+
+### Tool 9: `simulation_control`
+* **Descrição:** Controla o loop físico da simulação de armazém (pausar, retomar ou alterar multiplicador de velocidade de 0.2x a 3.0x).
+```python
+class SimulationControlInput(BaseModel):
+    action: str = Field(description="'pause', 'resume', 'toggle' ou 'set_speed'")
+    speed: Optional[float] = Field(default=None, description="Multiplicador de velocidade")
+
+class SimulationControlOutput(BaseModel):
+    success: bool
+    is_paused: bool
+    speed: float
+    message: str
+```
+
+### Tool 10: `get_warehouse_metrics` & `trigger_chaos`
+* **Descrição:** Consulta métricas de intralogística em tempo real (vazão, pedidos entregues e pendentes, utilização) ou injeta falhas controladas para testes de resiliência.
+```python
+class WarehouseMetricsOutput(BaseModel):
+    success: bool
+    throughput_per_hour: float
+    completed_orders: int
+    pending_orders: int
+    fleet_utilization_pct: float
+    average_battery_pct: float
+    active_incidents: int
+    grid_size: str
+    fleet_size: int
+
+class TriggerChaosOutput(BaseModel):
+    success: bool
+    incident_type: str
+    affected_amrs: List[str]
+    rca_summary: str
+    message: str
+```
+
 ---
 
 ## 4. Human-In-The-Loop (HITL) & Guardrails
