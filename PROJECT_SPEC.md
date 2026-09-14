@@ -41,7 +41,7 @@ graph TB
     Canvas -->|Render Loop 60 FPS| ZustandStore
     CopilotChat -->|Streaming SSE / WS| CopilotDispatcher
     
-    ZustandStore <-->|WebSocket Deltas (< 10 KB/s)| WSHub
+    ZustandStore <-->|WebSocket Deltas sub-10 KB/s| WSHub
     UI -->|REST API / Layouts JSON| FastAPIServer
     
     WSHub <--> FleetManager

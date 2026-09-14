@@ -1,11 +1,11 @@
-﻿# 🤖 NexusFleet AMR: Autonomous Fleet Orchestrator & Digital Twin
+# 🤖 NexusFleet AMR: Autonomous Fleet Orchestrator & Digital Twin
 
 [![Python Version](https://img.shields.io/badge/Python-3.12%2B-blue.svg)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.110%2B-05998b.svg)](https://fastapi.tiangolo.com/)
 [![React 19](https://img.shields.io/badge/React-19.0%2B-61dafb.svg)](https://react.dev/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-Strict-3178c6.svg)](https://www.typescriptlang.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Tests](https://img.shields.io/badge/Tests-19%20passed%20(100%25)-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/Tests-20%20passed%20(100%25)-brightgreen.svg)]()
 [![API Docs: Scalar](https://img.shields.io/badge/API%20Docs-Scalar-black.svg)](https://github.com/scalar/scalar)
 [![AI: Gemini Pro](https://img.shields.io/badge/AI%20Copilot-Gemini%20Pro-8e75ff.svg)](https://ai.google.dev/)
 [![Observability: Langfuse](https://img.shields.io/badge/Observability-Langfuse-orange.svg)](https://langfuse.com/)
@@ -17,9 +17,34 @@
 > **Interface Interativa:** `https://nexusfleet-amr.a.run.app` *(ou `http://localhost:8000`)*  
 > **Documentação da API (Scalar):** `http://localhost:8000/docs`
 
+<div align="center">
+  <img src="screenshots/nexusfleet_demo.gif" alt="NexusFleet AMR Digital Twin Demo" width="100%" style="border-radius: 12px; box-shadow: 0 20px 40px rgba(0,0,0,0.4);" />
+  <p><em>Coordenação autônoma multi-robô em tempo real via Space-Time A* MAPF com anti-colisão determinística a 60 FPS</em></p>
+</div>
+
 O **NexusFleet AMR** é uma plataforma de intralogística de padrão internacional para coordenação em tempo real de frotas de **Robôs Móveis Autônomos (AMRs)** em galpões de alta densidade (padrão *Amazon Robotics*, *Mercado Livre Fulfillment* e *Symbotic*).
 
 O sistema integra o estado da arte em **Roteamento Espaço-Temporal Multi-Agente (Space-Time MAPF)**, um **Digital Twin interativo a 60 FPS**, um módulo de **Engenharia de Caos & RCA (Root Cause Analysis)** com reprodutor de Caixa Preta, um **Mapa de Calor Evaporativo**, um **Studio de Design de Galpões**, um **Painel de Business Intelligence** e um **Copiloto Operacional de IA Bilíngue (PT/EN)** com proteção de segurança física *Human-In-The-Loop* (ISO 3691-4).
+
+---
+
+## 📸 Galeria de Recursos & Screenshots
+
+| 🎮 Simulador Digital Twin 2D/3D | 🔍 Telemetria & Detalhe do Robô |
+|:---:|:---:|
+| ![Digital Twin Simulator](screenshots/01_digital_twin_simulator.png) | ![AMR Detail Modal](screenshots/02_amr_detail_modal.png) |
+
+| 📋 Central de Logs & Auto-Cura | 💬 Copiloto de IA com Guardrails HITL |
+|:---:|:---:|
+| ![Fleet Logs Terminal](screenshots/03_fleet_logs_terminal.png) | ![Copilot AI](screenshots/04_copilot_assistant.png) |
+
+| 📐 Studio de Layout de Galpão (BFS) | 📊 Executive Shift Analytics & BI |
+|:---:|:---:|
+| ![Layout Studio](screenshots/05_layout_studio.png) | ![Analytics BI](screenshots/06_analytics_bi.png) |
+
+| 📑 Documentação Viva de APIs (Scalar) |
+|:---:|
+| ![Scalar API Docs](screenshots/07_scalar_api_docs.png) |
 
 ---
 
@@ -39,8 +64,8 @@ graph TB
 
     subgraph Container ["☁️ Google Cloud Run Container (Porta 8000)"]
         FastAPI["FastAPI Async Engine + Static Serving"]
-        Scalar["Scalar Interactive API Documentation ('/docs')"]
-        WSHub["WebSocket Delta Telemetry Server ('/ws/telemetry')"]
+        Scalar["Scalar Interactive API Documentation (/docs)"]
+        WSHub["WebSocket Delta Telemetry Server (/ws/telemetry)"]
         
         subgraph CoreRobotics ["🧠 Core Robotics Engine"]
             MAPF["Space-Time A* + Reservation Table (x, y, t)"]
@@ -57,8 +82,8 @@ graph TB
         end
     end
 
-    Browser <-->|WebSocket Deltas (< 10 KB/s)| WSHub
-    Browser -->|REST API / Layouts / Chaos| FastAPI
+    Canvas <-->|WebSocket Deltas sub-10 KB/s| WSHub
+    Canvas -->|REST API / Layouts / Chaos| FastAPI
     WSHub <--> Fleet
     Fleet <--> MAPF
     Fleet --> FlightRec
